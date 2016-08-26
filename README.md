@@ -193,7 +193,6 @@ Here is how we can represent that succinctly:
   :interface.def/fields
     {:person.id/ssn [:string "A person's ssn number"
                              :db.unique/value]
- 
      :person/name [[:person/name] "A person's names"]}}
      ; The 2nd :person/name refers to the entity type defined below (see [XYZ])
 
@@ -280,37 +279,37 @@ The benefits of such an approach are that:
 
 ##### Detecting the interfaces an entity can represent
 
-If we read en entity from a Datomic database, how can we determine what interfaces
-it implements. We will only be able to rely on the attributes of an entity to figure
+If we read an entity from a Datomic database, how can we determine what interfaces
+it implements? We will only be able to rely on the attributes of an entity to figure
 this out. We can leverage attributes to identify entities in one of two ways.
 
 1. Via possession of an attribute (or attributes) that is (or are) always present
    (i.e., `:required`).
 
-   ```clojure
-   {:interface.def/name :interface/automobile
-    :interface.def/fields
-      {:automobile/license-plate [:string :required]}
-    :interface.def/identify-via :automobile/license-plate}
-   ```
+    ```clojure
+    {:interface.def/name :interface/automobile
+     :interface.def/fields
+       {:automobile/license-plate [:string :required]}
+     :interface.def/identify-via :automobile/license-plate}
+    ```
 
-   ```clojure
-   {:interface.def/name :interface/automobile
-    :interface.def/fields
-      {:automobile/make [:string :required]
-       :automobile/model [:string :required]}
-    :interface.def/identify-via #{:automobile/make :automobile/model}}
-   ```
+    ```clojure
+    {:interface.def/name :interface/automobile
+     :interface.def/fields
+       {:automobile/make [:string :required]
+        :automobile/model [:string :required]}
+     :interface.def/identify-via #{:automobile/make :automobile/model}}
+    ```
 
 2. Via a special attribute `:interface.def/interfaces` that is a many-cardinality
    attribute of enums where an enum value names an interface that the entity
    can be interpreted as.
 
-   ```clojure
-   {:interface.def/name :interface/automobile
-    :interface.def/fields {:automobile/license-plate [:string]}
-    :interface.def/identify-via :interface.def/interfaces}
-   ```
+    ```clojure
+    {:interface.def/name :interface/automobile
+     :interface.def/fields {:automobile/license-plate [:string]}
+     :interface.def/identify-via :interface.def/interfaces}
+    ```
 
 We choose to force you to think about how you will enforce this so that you do not lose
 any information about an entity's interfaces after you write it to the database. An
