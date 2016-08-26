@@ -27,14 +27,14 @@ specification.
    how it is being used in an app.
 2. (Done) Generate schema edn for Datomic schema specifications.
 3. (Done) Generate `clojure.spec` spec definitions.
-4. Provide easy validation tagging (e.g., `:required`).
+4. Provide easy, extensible validation tagging (e.g., `:required`).
 5. (Done) Generate fake dev data or test data, by providing additional
    semantics (e.g., what entity types can map to what other entity types via
    Datomic `ref`s).
 6. Integrates with a nice way to add or retract from a Datomic db schema when
    these semantic schema definitions change.
 7. Make it easy to extract specific *kinds* of entities.
-8. Support polymorphism.
+8. (Done) Support polymorphism.
 9. Small code base.
 10. Simple design.
 
@@ -45,8 +45,8 @@ We adopt a declarative edn specification for defining stronger semantics on top
 of Datomic schemas. This alternative mimics syntax from
 [Yuppiechef/datomic-schema](https://github.com/Yuppiechef/datomic-schema).
 
-As an end-user developer using this library, most of your application of this
-library will be convert some collection of specs to:
+As a developer using this library, most of your application of this library
+will be to convert some collection of specs to:
 
 1. To Datomic schema attributes that will be added to the Datomic schema.
 2. To app data datoms in `:db.part/user` (or specified partition).
@@ -66,12 +66,12 @@ In `datomic-spec`, our semantic definitions are defined as data.
 ```clojure
 (def user-spec
   {:interface.def/name :interface/user
-   :interface.def/fields {
-     :user/username [:string "A user's username"
+   :interface.def/fields
+     {:user/username [:string "A user's username"
                              :unique/identity ; can also be :unique/value
                              :required]
-     :taggable/tags [[:string] "Tags for an entity"]
-     :user/registeredAt [:instant "When a user registered"]}
+      :taggable/tags [[:string] "Tags for an entity"]
+      :user/registeredAt [:instant "When a user registered"]}
    :interface.def/identify-via :user/username})
 ```
 
@@ -81,7 +81,7 @@ attributes:
 - A string attribute named `:user/username` that is required and uniquely
 identifies a given user.
 - An attribute named `:taggable/tags` that is a vector of strings. This
-corresponds to a Datomic cardinality of `:cardinality/many` and is simply
+corresponds to a Datomic cardinality of `:db.cardinality/many` and is simply
 specified by placing the member type inside a vector.
 - An attribute named `:user/registeredAt` that is of type instant.
 
@@ -113,7 +113,7 @@ The possible types we can specify for an attribute are:
 
 A type signature in vector form (e.g., `[:string]`) implies a "has many"
 field -- or in other words, a field that can have multiple members, i.e.,
-`:cardinality/many`.
+`:db.cardinality/many`.
 
 #### Enum Types
 
@@ -121,19 +121,19 @@ An attribute can also take on an enumerated set of values.
 
 ```clojure
 {:interface.def/name :interface/person
- :interface.def/fields {
-   :person/gender ["A person's gender"
-                   :enum {:person.gender/male "Male"
-                          :person.gender/female  "Female"
-                          :person.gender/other "Other"}]}}
+ :interface.def/fields
+   {:person/gender ["A person's gender"
+                    :enum {:person.gender/male "Male"
+                           :person.gender/female  "Female"
+                           :person.gender/other "Other"}]}}
 
 ; or
 {:interface.def/name :person
- :interface.def/fields {
-   :person/gender [:enum #{:person.gender/male
-                           :person.gender/female
-                           :person.gender/other]
-                           "A person's gender"}}}
+ :interface.def/fields
+   {:person/gender [:enum #{:person.gender/male
+                            :person.gender/female
+                            :person.gender/other]
+                            "A person's gender"}}}
 ```
 
 The type is specified by the keyword `:enum` immediately followed by either a
@@ -148,9 +148,9 @@ the `:required` flag to the field definition:
 
 ```clojure
 {:interface.def/name :interface/user
- :interface.def/fields {
-   :user/username [:string "A user's username" :required]
-   :user/password [:string "A user's hashed password" :required]}}
+ :interface.def/fields
+   {:user/username [:string "A user's username" :required]
+    :user/password [:string "A user's hashed password" :required]}}
 ```
 
 The field flags that come pre-packaged with `datomic-spec` include:
@@ -190,12 +190,12 @@ Here is how we can represent that succinctly:
 
 ```clojure
 [{:interface.def/name :interface/person
-  :interface.def/fields {
-    :person.id/ssn [:string "A person's ssn number"
-                            :db.unique/value]
-
-    :person/name [[:person/name] "A person's names"]}}
-    ; The 2nd :person/name refers to the entity type defined below (see [XYZ])
+  :interface.def/fields
+    {:person.id/ssn [:string "A person's ssn number"
+                             :db.unique/value]
+ 
+     :person/name [[:person/name] "A person's names"]}}
+     ; The 2nd :person/name refers to the entity type defined below (see [XYZ])
 
 
  ; Notice how we can define more than one schema type in a single edn map.
@@ -203,9 +203,9 @@ Here is how we can represent that succinctly:
  ; [XYZ] Can define more than one type in a given edn file. For convenience, we
  ; define :person/name here because it is used in the :person type above
  {:interface.def/name :person/name
-  :interface.def/fields {
-    :person.name/given [:string "A given part of a person's name"]
-    :person.name/family [:string "The family part of a person's name"]}}]
+  :interface.def/fields
+    {:person.name/given [:string "A given part of a person's name"]
+     :person.name/family [:string "The family part of a person's name"]}}]
 ```
 
 The above interface definitions can generate the following Datomic schema:
@@ -255,20 +255,20 @@ a patient and a practitioner are both persons as well.
 
 ```clojure
 [{:interface.def/name :interface/person
-  :interface.def/fields {
-    :person/name [:string]}}
+  :interface.def/fields
+    {:person/name [:string]}}
 
  {:interface.def/name :interface/patient
   :interface.def/inherits [:interface/person]
-  :interface.def/fields {
-    :patient/physicians [[:interface/physician]
+  :interface.def/fields
+    {:patient/physicians [[:interface/physician]
                           "A patient's physicians"]}}
 
  {:interface.def/name :interface/physician
   :interface.def/inherits #{:interface/person}
-  :interface.def/fields {
-    :physician/specialties [[:string]
-                            "The physician's medical specialty or specialties."]}}]
+  :interface.def/fields
+    {:physician/specialties [[:string]
+                             "The physician's medical specialty or specialties."]}}]
 ```
 
 The above specifies that the `:patient` entity type and the `:practitioner`
@@ -289,18 +289,16 @@ this out. We can leverage attributes to identify entities in one of two ways.
 
    ```clojure
    {:interface.def/name :interface/automobile
-    :interface.def/fields {
-      :automobile/license-plate [:string :required]
-    }
+    :interface.def/fields
+      {:automobile/license-plate [:string :required]}
     :interface.def/identify-via :automobile/license-plate}
    ```
 
    ```clojure
    {:interface.def/name :interface/automobile
-    :interface.def/fields {
-      :automobile/make [:string :required]
-      :automobile/model [:string :required]
-    }
+    :interface.def/fields
+      {:automobile/make [:string :required]
+       :automobile/model [:string :required]}
     :interface.def/identify-via #{:automobile/make :automobile/model}}
    ```
 
@@ -310,9 +308,7 @@ this out. We can leverage attributes to identify entities in one of two ways.
 
    ```clojure
    {:interface.def/name :interface/automobile
-    :interface.def/fields {
-      :automobile/license-plate [:string]
-    }
+    :interface.def/fields {:automobile/license-plate [:string]}
     :interface.def/identify-via :interface.def/interfaces}
    ```
 
@@ -330,12 +326,12 @@ Consider the spec we first encountered:
 ```clojure
 (def user-spec
   {:interface.def/name :interface/user
-   :interface.def/fields {
-     :user/username [:string "A user's username"
-                             :unique/identity ; can also be :unique/value
-                             :required]
-     :taggable/tags [[:string] "Tags for an entity"]
-     :user/registeredAt [:instant "When a user registered"]}})
+   :interface.def/fields
+     {:user/username [:string "A user's username"
+                              :unique/identity ; can also be :unique/value
+                              :required]
+      :taggable/tags [[:string] "Tags for an entity"]
+      :user/registeredAt [:instant "When a user registered"]}})
 ```
 
 It will also be able to generate the following Datomic attributes.
@@ -385,11 +381,11 @@ specify. For example, consider the following
 ```clojure
 (def person-spec
   {:interface.def/name :interface/person
-   :interface.def/fields {
-     :person/gender ["A person's gender"
-                     :enum {:person.gender/male "Male"
-                            :person.gender/female  "Female"
-                            :person.gender/other "Other"}]}})
+   :interface.def/fields
+     {:person/gender ["A person's gender"
+                      :enum {:person.gender/male "Male"
+                             :person.gender/female  "Female"
+                             :person.gender/other "Other"}]}})
 (-> person-spec
     semantic-spec->semantic-ast
     (semantic-ast->datomic-schemas d/tempid))
@@ -554,25 +550,23 @@ Consider our semantic definition for a user:
 ```clojure
 (def user-spec
   {:interface.def/name :interface/user
-  :interface.def/fields #:user{
-    :username [:string "A user's username"
-                       :db.unique/identity ; can also be :unique/value
-                       :required]
-    :taggable/tags [[:string] "Tags for an entity"]
-    :registeredAt [:instant "When a user registered"]
-    [:taggable/tags [:string] "Tags for an entity"]
-    [:user/registeredAt :instant "When a user registered"]
-  }})
+   :interface.def/fields 
+     #:user{:username [:string "A user's username"
+                               :db.unique/identity ; can also be :unique/value
+                               :required]
+            :taggable/tags [[:string] "Tags for an entity"]
+            :registeredAt [:instant "When a user registered"]
+            :taggable/tags [[:string] "Tags for an entity"]
+            :user/registeredAt [:instant "When a user registered"]}})
 
 (def user-spec
   {:interface.def/name :interface/user
-  :interface.def/fields {
-    :user/username [:string "A user's username"
-                            :db.unique/identity ; can also be :unique/value
-                            :required]
-    :taggable/tags [[:string] "Tags for an entity"]
-    :user/registeredAt [:instant "When a user registered"]
-  }})
+  :interface.def/fields
+    {:user/username [:string "A user's username"
+                             :db.unique/identity ; can also be :unique/value
+                             :required]
+     :taggable/tags [[:string] "Tags for an entity"]
+     :user/registeredAt [:instant "When a user registered"]}})
 ```
 
 Then, we can convert this to the intermediate AST.
@@ -617,11 +611,11 @@ Let's revisit another example.
 ```clojure
 (def person-spec
   {:interface.def/name :interface/person
-   :interface.def/fields {
-     :person/gender ["A person's gender"
-                     :enum {:person.gender/male "Male"
-                            :person.gender/female  "Female"
-                            :person.gender/other "Other"}]}})
+   :interface.def/fields
+     {:person/gender ["A person's gender"
+                      :enum {:person.gender/male "Male"
+                             :person.gender/female  "Female"
+                             :person.gender/other "Other"}]}})
 ```
 
 This semantic spec generates the following AST.
@@ -638,9 +632,7 @@ This semantic spec generates the following AST.
                         :semantic/type :enum
                         :interface.ast.field/enum-seq #{:gender/male
                                                         :gender/female}}}
-     :interface.ast.interface/inherits #{}
-    }
-  }
+     :interface.ast.interface/inherits #{}}}
  :interface.ast/enum-map
    {:gender/male {:db/ident :gender/male
                   :db/doc "Male"}
