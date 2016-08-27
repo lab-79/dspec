@@ -55,7 +55,7 @@
 ;
 
 (s/def :interface/def
-  (s/keys :req [:interface.def/name :interface.def/fields]
+  (s/keys :req [:interface.def/name :interface.def/fields :interface.def/identify-via]
           :opt [:interface.def/inherits]))
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/coll-of :interface.def/field :kind set?))
@@ -252,7 +252,7 @@
   "Converts a user-readability-optimized semantic schema spec into a AST that can be used to generate Datomic
   schemas, generate test data, etc."
   [spec]
-  (let [{:interface.def/keys [name fields inherits]} spec
+  (let [{:interface.def/keys [name fields inherits identify-via]} spec
         {:keys [interface-fields enum-map]} (reduce
                                               (fn [parsed [field-name field-spec]]
                                                 (let [{:interface.ast/keys [enum-map field]} (parse-field-def field-spec field-name)]
@@ -260,10 +260,14 @@
                                                       (update :enum-map merge enum-map)
                                                       (assoc-in [:interface-fields field-name] field))))
                                               {:interface-fields {} :enum-map {}}
-                                              fields)]
+                                              fields)
+        identify-via' (if (= :datomic-spec/interfaces identify-via)
+                        [['?e :datomic-spec/interfaces name]]
+                        identify-via)]
     {:interface.ast/interfaces {name {:interface.ast.interface/name name
                                       :interface.ast.interface/fields interface-fields
-                                      :interface.ast.interface/inherits (into #{} inherits)}}
+                                      :interface.ast.interface/inherits (into #{} inherits)
+                                      :interface.ast.interface/identify-via identify-via'}}
      :interface.ast/enum-map enum-map}))
 (s/fdef semantic-spec->semantic-ast
          :args (s/cat :spec :interface/def)
