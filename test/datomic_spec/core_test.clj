@@ -24,6 +24,20 @@
 
 (deftest tests
   (testing "a semantic spec"
+    (testing "identifying its type via :datomic-spec/interfaces"
+      (let [spec {:interface.def/name :interface/eponym
+                  :interface.def/fields {}
+                  :interface.def/identify-via :datomic-spec/interfaces}]
+        (testing "generating Datomic schemas"
+          (let [datomic-schemas (-> spec
+                                    semantic-spec->semantic-ast
+                                    (semantic-ast->datomic-schemas d/tempid))]
+            (is (= #{{:db/ident :datomic-spec/interfaces
+                      :db/valueType :db.type/ref
+                      :db/cardinality :db.cardinality/many
+                      :db.install/_attribute :db.part/db}
+                     {:db/ident :interface/eponym}}
+                   (set (map #(dissoc % :db/id) datomic-schemas))))))))
     (testing "with primitively typed attributes"
       (testing "of type :keyword"
         (let [spec {:interface.def/name :interface/entity-with-keyword
