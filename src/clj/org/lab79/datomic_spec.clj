@@ -253,23 +253,18 @@
   schemas, generate test data, etc."
   [spec]
   (let [{:interface.def/keys [name fields inherits]} spec
-        ast {:interface.ast/interfaces {name {:interface.ast.interface/name name
-                                              :interface.ast.interface/fields {}
-                                              :interface.ast.interface/inherits (into #{} inherits)}}
-             :interface.ast/enum-map {}}]
-    (reduce
-      (fn [ast [field-name field-spec]]
-        {:pre [(s/valid? :interface/ast ast)
-               (s/valid? :interface.def/field field-spec)]
-         :post [(s/valid? :interface/ast %)]}
-        (let [{:interface.ast/keys [enum-map field]} (parse-field-def field-spec field-name)]
-
-          (-> ast
-              (update :interface.ast/enum-map merge enum-map)
-              (assoc-in [:interface.ast/interfaces name :interface.ast.interface/fields (:db/ident field)]
-                        field))))
-      ast
-      fields)))
+        {:keys [interface-fields enum-map]} (reduce
+                                              (fn [parsed [field-name field-spec]]
+                                                (let [{:interface.ast/keys [enum-map field]} (parse-field-def field-spec field-name)]
+                                                  (-> parsed
+                                                      (update :enum-map merge enum-map)
+                                                      (assoc-in [:interface-fields field-name] field))))
+                                              {:interface-fields {} :enum-map {}}
+                                              fields)]
+    {:interface.ast/interfaces {name {:interface.ast.interface/name name
+                                      :interface.ast.interface/fields interface-fields
+                                      :interface.ast.interface/inherits (into #{} inherits)}}
+     :interface.ast/enum-map enum-map}))
 (s/fdef semantic-spec->semantic-ast
          :args (s/cat :spec :interface/def)
          :ret :interface/ast)
