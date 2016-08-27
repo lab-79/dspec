@@ -28,88 +28,86 @@
       (testing "of type :keyword"
         (let [spec {:interface.def/name :interface/entity-with-keyword
                     :interface.def/fields {:obj/keyword-attr [:keyword "A keyword attribute"]}
-                    :interface.def/identify-via ['[?e :obj/keyword-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/keyword-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                      {:interface/entity-with-keyword
-                       {:interface.ast.interface/name :interface/entity-with-keyword
-                        :interface.ast.interface/fields
-                        {:obj/keyword-attr {:db/ident :obj/keyword-attr
-                                            :db/valueType :db.type/keyword
-                                            :interface.ast.field/type :keyword
-                                            :db/cardinality :db.cardinality/one
-                                            :db/doc "A keyword attribute"}}
-                        :interface.ast.interface/inherits #{}
-                        :interface.ast.interface/identify-via ['[?e :obj/keyword-attr]]}}
-                      :interface.ast/enum-map {}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/keyword-attr :ok))
-                (is (= ::s/invalid (s/conform :obj/keyword-attr "ok"))))
-              (testing "for entity interfaces"
-                (is (s/valid? :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
-                                                              :obj/keyword-attr :ok}))
-                (is (= ::s/invalid (s/conform :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
-                                                                                        :obj/keyword-attr "ok"}))))
-              (testing "and generating data"
-                (let [generator (s/gen :interface/entity-with-keyword)
-                      entity (gen/generate generator)]
-                  (is (contains? entity :db/id))
-                  (is (or (not (contains? entity :obj/keyword-attr))
-                          (keyword? (entity :obj/keyword-attr))))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-keyword
+                                             {:interface.ast.interface/name :interface/entity-with-keyword
+                                              :interface.ast.interface/fields
+                                              {:obj/keyword-attr {:db/ident :obj/keyword-attr
+                                                                  :db/valueType :db.type/keyword
+                                                                  :interface.ast.field/type :keyword
+                                                                  :db/cardinality :db.cardinality/one
+                                                                  :db/doc "A keyword attribute"}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/keyword-attr]]}}
+                    :interface.ast/enum-map {}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/keyword-attr :ok))
+              (is (= ::s/invalid (s/conform :obj/keyword-attr "ok"))))
+            (testing "for entity interfaces"
+              (is (s/valid? :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
+                                                            :obj/keyword-attr :ok}))
+              (is (= ::s/invalid (s/conform :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
+                                                                            :obj/keyword-attr "ok"}))))
+            (testing "and generating data"
+              (let [generator (s/gen :interface/entity-with-keyword)
+                    entity (gen/generate generator)]
+                (is (contains? entity :db/id))
+                (is (or (not (contains? entity :obj/keyword-attr))
+                        (keyword? (entity :obj/keyword-attr)))))))))
       (testing "of type :string"
         (let [spec {:interface.def/name :interface/entity-with-string
                     :interface.def/fields {:obj/string-attr [:string "A string attribute"]}
-                    :interface.def/identify-via ['[?e :obj/string-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/string-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-string
-                                               {:interface.ast.interface/name :interface/entity-with-string
-                                                :interface.ast.interface/fields
-                                                {:obj/string-attr {:db/ident :obj/string-attr
-                                                                   :db/valueType :db.type/string
-                                                                   :interface.ast.field/type :string
-                                                                   :db/cardinality :db.cardinality/one
-                                                                   :db/doc "A string attribute"}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/string-attr]]}}
-                      :interface.ast/enum-map {}}))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-string
+                                             {:interface.ast.interface/name :interface/entity-with-string
+                                              :interface.ast.interface/fields
+                                              {:obj/string-attr {:db/ident :obj/string-attr
+                                                                 :db/valueType :db.type/string
+                                                                 :interface.ast.field/type :string
+                                                                 :db/cardinality :db.cardinality/one
+                                                                 :db/doc "A string attribute"}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/string-attr]]}}
+                    :interface.ast/enum-map {}})))))
       (testing "of type :boolean"
         (let [spec {:interface.def/name :interface/entity-with-boolean
                     :interface.def/fields {:obj/boolean-attr [:boolean "A boolean attribute" :gen/should-generate]}
-                    :interface.def/identify-via ['[?e :obj/boolean-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/boolean-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-boolean
-                                               {:interface.ast.interface/name :interface/entity-with-boolean
-                                                :interface.ast.interface/fields
-                                                {:obj/boolean-attr {:db/ident :obj/boolean-attr
-                                                                    :db/valueType :db.type/boolean
-                                                                    :interface.ast.field/type :boolean
-                                                                    :db/cardinality :db.cardinality/one
-                                                                    :db/doc "A boolean attribute"
-                                                                    :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/boolean-attr]]}}
-                      :interface.ast/enum-map {}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/boolean-attr true))
-                (is (= ::s/invalid (s/conform :obj/boolean-attr "true"))))
-              (testing "and generating data"
-                (let [generator (s/gen :interface/entity-with-boolean)
-                      entity (gen/generate generator)]
-                  (is (boolean? (:obj/boolean-attr entity)))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-boolean
+                                             {:interface.ast.interface/name :interface/entity-with-boolean
+                                              :interface.ast.interface/fields
+                                              {:obj/boolean-attr {:db/ident :obj/boolean-attr
+                                                                  :db/valueType :db.type/boolean
+                                                                  :interface.ast.field/type :boolean
+                                                                  :db/cardinality :db.cardinality/one
+                                                                  :db/doc "A boolean attribute"
+                                                                  :gen/should-generate true}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/boolean-attr]]}}
+                    :interface.ast/enum-map {}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/boolean-attr true))
+              (is (= ::s/invalid (s/conform :obj/boolean-attr "true"))))
+            (testing "and generating data"
+              (let [generator (s/gen :interface/entity-with-boolean)
+                    entity (gen/generate generator)]
+                (is (boolean? (:obj/boolean-attr entity))))))))
       (testing "of type :long"
         (let [spec {:interface.def/name :interface/entity-with-long
                     :interface.def/fields {:obj/long-attr [:long "A long attribute"]}
@@ -132,7 +130,8 @@
       (testing "of type :bigint"
         (let [spec {:interface.def/name :interface/entity-with-bigint
                     :interface.def/fields {:obj/bigint-attr [:bigint "A bigint attribute"]}
-                    :interface.def/identify-via ['[?e :obj/bigint-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/bigint-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -209,187 +208,182 @@
       (testing "of type :instant"
         (let [spec {:interface.def/name :interface/entity-with-instant
                     :interface.def/fields {:obj/instant-attr [:instant "An instant attribute" :gen/should-generate]}
-                    :interface.def/identify-via ['[?e :obj/instant-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/instant-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-instant
-                                               {:interface.ast.interface/name :interface/entity-with-instant
-                                                :interface.ast.interface/fields
-                                                {:obj/instant-attr {:db/ident :obj/instant-attr
-                                                                    :db/valueType :db.type/instant
-                                                                    :interface.ast.field/type :instant
-                                                                    :db/cardinality :db.cardinality/one
-                                                                    :db/doc "An instant attribute"
-                                                                    :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/instant-attr]]}}
-                      :interface.ast/enum-map {}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/instant-attr #inst "2014-05-19T19:12:37.925-00:00"))
-                (is (= ::s/invalid (s/conform :obj/instant-attr "not a date"))))
-              (testing "and generating data"
-                (let [generator (s/gen :interface/entity-with-instant)
-                      entity (gen/generate generator)]
-                  (is (inst? (:obj/instant-attr entity)))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-instant
+                                             {:interface.ast.interface/name :interface/entity-with-instant
+                                              :interface.ast.interface/fields
+                                              {:obj/instant-attr {:db/ident :obj/instant-attr
+                                                                  :db/valueType :db.type/instant
+                                                                  :interface.ast.field/type :instant
+                                                                  :db/cardinality :db.cardinality/one
+                                                                  :db/doc "An instant attribute"
+                                                                  :gen/should-generate true}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/instant-attr]]}}
+                    :interface.ast/enum-map {}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/instant-attr #inst "2014-05-19T19:12:37.925-00:00"))
+              (is (= ::s/invalid (s/conform :obj/instant-attr "not a date"))))
+            (testing "and generating data"
+              (let [generator (s/gen :interface/entity-with-instant)
+                    entity (gen/generate generator)]
+                (is (inst? (:obj/instant-attr entity))))))))
       (testing "of type :uuid"
         (let [spec {:interface.def/name :interface/entity-with-uuid
                     :interface.def/fields {:obj/id [:uuid "A uuid" :gen/should-generate]}
-                    :interface.def/identify-via ['[?e :obj/id]]}]
+                    :interface.def/identify-via ['[?e :obj/id]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-uuid
-                                               {:interface.ast.interface/name :interface/entity-with-uuid
-                                                :interface.ast.interface/fields
-                                                {:obj/id {:db/ident :obj/id
-                                                          :db/valueType :db.type/uuid
-                                                          :interface.ast.field/type :uuid
-                                                          :db/cardinality :db.cardinality/one
-                                                          :db/doc "A uuid"
-                                                          :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/id]]}}
-                      :interface.ast/enum-map {}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/id #uuid "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))
-                (is (= ::s/invalid (s/conform :obj/id "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))))
-              (testing "and generating data"
-                (let [generator (s/gen :interface/entity-with-uuid)
-                      entity (gen/generate generator)]
-                  (is (uuid? (:obj/id entity)))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-uuid
+                                             {:interface.ast.interface/name :interface/entity-with-uuid
+                                              :interface.ast.interface/fields
+                                              {:obj/id {:db/ident :obj/id
+                                                        :db/valueType :db.type/uuid
+                                                        :interface.ast.field/type :uuid
+                                                        :db/cardinality :db.cardinality/one
+                                                        :db/doc "A uuid"
+                                                        :gen/should-generate true}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/id]]}}
+                    :interface.ast/enum-map {}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/id #uuid "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))
+              (is (= ::s/invalid (s/conform :obj/id "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))))
+            (testing "and generating data"
+              (let [generator (s/gen :interface/entity-with-uuid)
+                    entity (gen/generate generator)]
+                (is (uuid? (:obj/id entity))))))))
       (testing "of type :uri"
         (let [spec {:interface.def/name :interface/entity-with-uri
                     :interface.def/fields {:obj/uri-attr [:uri "A uri attribute"]}
-                    :interface.def/identify-via ['[?e :obj/uri-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/uri-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-uri
-                                               {:interface.ast.interface/name :interface/entity-with-uri
-                                                :interface.ast.interface/fields
-                                                {:obj/uri-attr {:db/ident :obj/uri-attr
-                                                                   :db/valueType :db.type/uri
-                                                                   :interface.ast.field/type :uri
-                                                                   :db/cardinality :db.cardinality/one
-                                                                   :db/doc "A uri attribute"}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/uri-attr]]}}
-                      :interface.ast/enum-map {}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/uri-attr (java.net.URI/create "http://google.com/")))
-                (is (= ::s/invalid (s/conform :obj/uri-attr "google.com"))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-uri
+                                             {:interface.ast.interface/name :interface/entity-with-uri
+                                              :interface.ast.interface/fields
+                                              {:obj/uri-attr {:db/ident :obj/uri-attr
+                                                              :db/valueType :db.type/uri
+                                                              :interface.ast.field/type :uri
+                                                              :db/cardinality :db.cardinality/one
+                                                              :db/doc "A uri attribute"}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/uri-attr]]}}
+                    :interface.ast/enum-map {}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/uri-attr (java.net.URI/create "http://google.com/")))
+              (is (= ::s/invalid (s/conform :obj/uri-attr "google.com")))))))
       (testing "of type :bytes"
         (let [spec {:interface.def/name :interface/entity-with-bytes
                     :interface.def/fields {:obj/bytes-attr [:bytes "A bytes attribute"]}
-                    :interface.def/identify-via ['[?e :obj/bytes-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/bytes-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-bytes
-                                               {:interface.ast.interface/name :interface/entity-with-bytes
-                                                :interface.ast.interface/fields
-                                                {:obj/bytes-attr {:db/ident :obj/bytes-attr
-                                                                  :db/valueType :db.type/bytes
-                                                                  :interface.ast.field/type :bytes
-                                                                  :db/cardinality :db.cardinality/one
-                                                                  :db/doc "A bytes attribute"}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/bytes-attr]]}}
-                      :interface.ast/enum-map {}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/bytes-attr (bytes (byte-array (map (comp byte int) "ascii")))))
-                (is (= ::s/invalid (s/conform :obj/bytes-attr "xyz")))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-bytes
+                                             {:interface.ast.interface/name :interface/entity-with-bytes
+                                              :interface.ast.interface/fields
+                                              {:obj/bytes-attr {:db/ident :obj/bytes-attr
+                                                                :db/valueType :db.type/bytes
+                                                                :interface.ast.field/type :bytes
+                                                                :db/cardinality :db.cardinality/one
+                                                                :db/doc "A bytes attribute"}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/bytes-attr]]}}
+                    :interface.ast/enum-map {}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/bytes-attr (bytes (byte-array (map (comp byte int) "ascii")))))
+              (is (= ::s/invalid (s/conform :obj/bytes-attr "xyz"))))))))
     (testing "with enum attributes"
       (testing "without docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-enum
                     :interface.def/fields {:obj/enum-attr ["An enum attribute"
                                                            :enum #{:some.enum/a :some.enum/b}]}
-                    :interface.def/identify-via ['[?e :obj/enum-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/enum-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                      {:interface/entity-with-enum
-                       {:interface.ast.interface/name :interface/entity-with-enum
-                        :interface.ast.interface/fields
-                        {:obj/enum-attr {:db/ident :obj/enum-attr
-                                         :db/valueType :db.type/ref
-                                         :interface.ast.field/type :enum
-                                         :interface.ast.field/possible-enum-vals #{:some.enum/a :some.enum/b}
-                                         :db/cardinality :db.cardinality/one
-                                         :db/doc "An enum attribute"}}
-                        :interface.ast.interface/inherits #{}
-                        :interface.ast.interface/identify-via ['[?e :obj/enum-attr]]}}
-                      :interface.ast/enum-map {:some.enum/a {:db/ident :some.enum/a}
-                                               :some.enum/b {:db/ident :some.enum/b}}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/enum-attr :some.enum/a))
-                (is (s/valid? :obj/enum-attr :some.enum/b))
-                (is (= ::s/invalid (s/conform :obj/enum-attr :some.enum/c))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-enum
+                                             {:interface.ast.interface/name :interface/entity-with-enum
+                                              :interface.ast.interface/fields
+                                              {:obj/enum-attr {:db/ident :obj/enum-attr
+                                                               :db/valueType :db.type/ref
+                                                               :interface.ast.field/type :enum
+                                                               :interface.ast.field/possible-enum-vals #{:some.enum/a :some.enum/b}
+                                                               :db/cardinality :db.cardinality/one
+                                                               :db/doc "An enum attribute"}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/enum-attr]]}}
+                    :interface.ast/enum-map {:some.enum/a {:db/ident :some.enum/a}
+                                             :some.enum/b {:db/ident :some.enum/b}}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/enum-attr :some.enum/a))
+              (is (s/valid? :obj/enum-attr :some.enum/b))
+              (is (= ::s/invalid (s/conform :obj/enum-attr :some.enum/c)))))))
       (testing "with docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-docstring-enum
                     :interface.def/fields {:obj/docstring-enum-attr ["A docstring'ed enum attribute"
                                                                      :enum {:some.doc.enum/a "Enum A"
                                                                             :some.doc.enum/b "Enum B"}
                                                                      :gen/should-generate]}
-                    :interface.def/identify-via ['[?e :obj/docstring-enum-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/docstring-enum-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
-            (let [ast (semantic-spec->semantic-ast spec)]
-              (is (= ast
-                     {:interface.ast/interfaces
-                                              {:interface/entity-with-docstring-enum
-                                               {:interface.ast.interface/name :interface/entity-with-docstring-enum
-                                                :interface.ast.interface/fields
-                                                {:obj/docstring-enum-attr {:db/ident :obj/docstring-enum-attr
-                                                                           :db/valueType :db.type/ref
-                                                                           :interface.ast.field/type :enum
-                                                                           :interface.ast.field/possible-enum-vals #{:some.doc.enum/a :some.doc.enum/b}
-                                                                           :db/cardinality :db.cardinality/one
-                                                                           :db/doc "A docstring'ed enum attribute"
-                                                                           :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}
-                                                :interface.ast.interface/identify-via ['[?e :obj/docstring-enum-attr]]}}
-                      :interface.ast/enum-map {:some.doc.enum/a {:db/ident :some.doc.enum/a
-                                                                 :db/doc "Enum A"}
-                                               :some.doc.enum/b {:db/ident :some.doc.enum/b
-                                                                 :db/doc "Enum B"}}}))))
-          (let [ast (semantic-spec->semantic-ast spec)]
-            (testing "generating clojure.spec definitions"
-              (register-specs-for-ast! ast)
-              (testing "for entity attributes"
-                (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/a))
-                (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/b))
-                (is (= ::s/invalid (s/conform :obj/docstring-enum-attr :some.enum/a))))
-              (testing "and generating data"
-                (let [generator (s/gen :interface/entity-with-docstring-enum)
-                      entity (gen/generate generator)]
-                  (is (contains? #{:some.doc.enum/a :some.doc.enum/b} (:obj/docstring-enum-attr entity))))))))))
+            (is (= ast
+                   {:interface.ast/interfaces
+                                            {:interface/entity-with-docstring-enum
+                                             {:interface.ast.interface/name :interface/entity-with-docstring-enum
+                                              :interface.ast.interface/fields
+                                              {:obj/docstring-enum-attr {:db/ident :obj/docstring-enum-attr
+                                                                         :db/valueType :db.type/ref
+                                                                         :interface.ast.field/type :enum
+                                                                         :interface.ast.field/possible-enum-vals #{:some.doc.enum/a :some.doc.enum/b}
+                                                                         :db/cardinality :db.cardinality/one
+                                                                         :db/doc "A docstring'ed enum attribute"
+                                                                         :gen/should-generate true}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :obj/docstring-enum-attr]]}}
+                    :interface.ast/enum-map {:some.doc.enum/a {:db/ident :some.doc.enum/a
+                                                               :db/doc "Enum A"}
+                                             :some.doc.enum/b {:db/ident :some.doc.enum/b
+                                                               :db/doc "Enum B"}}})))
+          (testing "generating clojure.spec definitions"
+            (register-specs-for-ast! ast)
+            (testing "for entity attributes"
+              (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/a))
+              (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/b))
+              (is (= ::s/invalid (s/conform :obj/docstring-enum-attr :some.enum/a))))
+            (testing "and generating data"
+              (let [generator (s/gen :interface/entity-with-docstring-enum)
+                    entity (gen/generate generator)]
+                (is (contains? #{:some.doc.enum/a :some.doc.enum/b} (:obj/docstring-enum-attr entity)))))))))
     (testing "with many-cardinality enum attributes"
       (testing "without docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-many-enum
                     :interface.def/fields {:obj/many-enum-attr ["A many-cardinality enum attribute"
                                                                 [:enum] #{:some.enum/a :some.enum/b}]}
-                    :interface.def/identify-via ['[?e :obj/many-enum-attr]]}]
+                    :interface.def/identify-via ['[?e :obj/many-enum-attr]]}
+              ast (semantic-spec->semantic-ast spec)]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
