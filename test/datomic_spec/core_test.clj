@@ -38,6 +38,19 @@
                       :db.install/_attribute :db.part/db}
                      {:db/ident :interface/eponym}}
                    (set (map #(dissoc % :db/id) datomic-schemas))))))))
+    (testing "identifying its type via existence of an attribute"
+      (let [spec {:interface.def/name :interface/id-by-attr
+                  :interface.def/fields {:obj/identifying-attr [:keyword]}
+                  :interface.def/identify-via ['[?e :obj/identifying-attr]]}]
+        (testing "generating Datomic schemas"
+          (let [datomic-schemas (-> spec
+                                    semantic-spec->semantic-ast
+                                    (semantic-ast->datomic-schemas d/tempid))]
+            (is (= #{{:db/ident :obj/identifying-attr
+                      :db/valueType :db.type/keyword
+                      :db/cardinality :db.cardinality/one
+                      :db.install/_attribute :db.part/db}}
+                   (set (map #(dissoc % :db/id) datomic-schemas))))))))
     (testing "with primitively typed attributes"
       (testing "of type :keyword"
         (let [spec {:interface.def/name :interface/entity-with-keyword
