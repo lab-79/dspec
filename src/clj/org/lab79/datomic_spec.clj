@@ -268,7 +268,8 @@
                                       :interface.ast.interface/fields interface-fields
                                       :interface.ast.interface/inherits (into #{} inherits)
                                       :interface.ast.interface/identify-via identify-via'}}
-     :interface.ast/enum-map enum-map}))
+     :interface.ast/enum-map (cond-> enum-map
+                                     (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name}}))}))
 (s/fdef semantic-spec->semantic-ast
          :args (s/cat :spec :interface/def)
          :ret :interface/ast)

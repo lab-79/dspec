@@ -467,7 +467,7 @@
                                                             :db/doc "A collection of strings"}}
                                                 :interface.ast.interface/inherits #{}
                                                 :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/entity-with-string-collection]]}}
-                      :interface.ast/enum-map {}})))))))
+                      :interface.ast/enum-map {:interface/entity-with-string-collection {:db/ident :interface/entity-with-string-collection}}})))))))
     (testing "with multiple attributes having multiple enums"
       (testing "semantic-spec->semantic-ast"
         (testing "should combine the enums")))
@@ -558,7 +558,7 @@
                                                                :db/doc "Refable attr"}}
                                        :interface.ast.interface/inherits #{}
                                        :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/refable]]}}
-                  :interface.ast/enum-map {}}))
+                  :interface.ast/enum-map {:interface/refable {:db/ident :interface/refable}}}))
           (testing "sets :db/valueType to :db.type/ref"
             (is (= :db.type/ref (get-in ast [:interface.ast/interfaces
                                              :interface/entity-with-valid-ref
@@ -605,7 +605,10 @@
                                         :interface.ast.interface/inherits #{}
                                         :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/father]]}}
                     :interface.ast/enum-map {:happy {:db/ident :happy}
-                                             :sad {:db/ident :sad}}}))))
+                                             :sad {:db/ident :sad}
+                                             :interface/child {:db/ident :interface/child}
+                                             :interface/mother {:db/ident :interface/mother}
+                                             :interface/father {:db/ident :interface/father}}}))))
         (testing "generating clojure.spec definitions"
           (let [ast (semantic-spec-coll->semantic-ast specs)]
             (register-specs-for-ast! ast)
