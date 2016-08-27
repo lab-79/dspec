@@ -260,14 +260,12 @@ a patient and a practitioner are both persons as well.
  {:interface.def/name :interface/patient
   :interface.def/inherits [:interface/person]
   :interface.def/fields
-    {:patient/physicians [[:interface/physician]
-                          "A patient's physicians"]}}
+    {:patient/physicians [[:interface/physician] "A patient's physicians"]}}
 
  {:interface.def/name :interface/physician
   :interface.def/inherits #{:interface/person}
   :interface.def/fields
-    {:physician/specialties [[:string]
-                             "The physician's medical specialty or specialties."]}}]
+    {:physician/specialties [[:string] "The physician's medical specialty or specialties."]}}]
 ```
 
 The above specifies that the `:patient` entity type and the `:practitioner`
@@ -290,7 +288,7 @@ this out. We can leverage attributes to identify entities in one of two ways.
     {:interface.def/name :interface/automobile
      :interface.def/fields
        {:automobile/license-plate [:string :required]}
-     :interface.def/identify-via :automobile/license-plate}
+     :interface.def/identify-via ['[?e :automobile/license-plate]]}
     ```
 
     ```clojure
@@ -298,7 +296,17 @@ this out. We can leverage attributes to identify entities in one of two ways.
      :interface.def/fields
        {:automobile/make [:string :required]
         :automobile/model [:string :required]}
-     :interface.def/identify-via #{:automobile/make :automobile/model}}
+     :interface.def/identify-via ['(or [?e :automobile/license-plate]
+                                       [?e :automobile/registration-id])]}
+    ```
+
+    ```clojure
+    {:interface.def/name :interface/automobile
+     :interface.def/fields
+       {:automobile/make [:string :required]
+        :automobile/model [:string :required]}
+     :interface.def/identify-via ['[?e :automobile/make]
+                                  '[?e :automobile/model]]}
     ```
 
 2. Via a special attribute `:interface.def/interfaces` that is a many-cardinality
@@ -308,7 +316,7 @@ this out. We can leverage attributes to identify entities in one of two ways.
     ```clojure
     {:interface.def/name :interface/automobile
      :interface.def/fields {:automobile/license-plate [:string]}
-     :interface.def/identify-via :interface.def/interfaces}
+     :interface.def/identify-via :datomic-spec/interfaces}
     ```
 
 We choose to force you to think about how you will enforce this so that you do not lose
