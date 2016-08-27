@@ -13,18 +13,22 @@
 (def family-semantic-specs
   [{:interface.def/name :interface/child
     :interface.def/fields {:person/name [:string]}
-    :interface.def/inherits [:interface/mother :interface/father]}
+    :interface.def/inherits [:interface/mother :interface/father]
+    :interface.def/identify-via :datomic-spec/interfaces}
    {:interface.def/name :interface/mother
-    :interface.def/fields {:person/personality [:enum #{:happy :sad}]}}
+    :interface.def/fields {:person/personality [:enum #{:happy :sad}]}
+    :interface.def/identify-via :datomic-spec/interfaces}
    {:interface.def/name :interface/father
-    :interface.def/fields {:person/bald? [:boolean]}}])
+    :interface.def/fields {:person/bald? [:boolean]}
+    :interface.def/identify-via :datomic-spec/interfaces}])
 
 (deftest tests
   (testing "a semantic spec"
     (testing "with primitively typed attributes"
       (testing "of type :keyword"
         (let [spec {:interface.def/name :interface/entity-with-keyword
-                    :interface.def/fields {:obj/keyword-attr [:keyword "A keyword attribute"]}}]
+                    :interface.def/fields {:obj/keyword-attr [:keyword "A keyword attribute"]}
+                    :interface.def/identify-via ['[?e :obj/keyword-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -37,7 +41,8 @@
                                             :interface.ast.field/type :keyword
                                             :db/cardinality :db.cardinality/one
                                             :db/doc "A keyword attribute"}}
-                        :interface.ast.interface/inherits #{}}}
+                        :interface.ast.interface/inherits #{}
+                        :interface.ast.interface/identify-via ['[?e :obj/keyword-attr]]}}
                       :interface.ast/enum-map {}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
             (testing "generating clojure.spec definitions"
@@ -58,7 +63,8 @@
                           (keyword? (entity :obj/keyword-attr))))))))))
       (testing "of type :string"
         (let [spec {:interface.def/name :interface/entity-with-string
-                    :interface.def/fields {:obj/string-attr [:string "A string attribute"]}}]
+                    :interface.def/fields {:obj/string-attr [:string "A string attribute"]}
+                    :interface.def/identify-via ['[?e :obj/string-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -71,11 +77,13 @@
                                                                    :interface.ast.field/type :string
                                                                    :db/cardinality :db.cardinality/one
                                                                    :db/doc "A string attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/string-attr]]}}
                       :interface.ast/enum-map {}}))))))
       (testing "of type :boolean"
         (let [spec {:interface.def/name :interface/entity-with-boolean
-                    :interface.def/fields {:obj/boolean-attr [:boolean "A boolean attribute" :gen/should-generate]}}]
+                    :interface.def/fields {:obj/boolean-attr [:boolean "A boolean attribute" :gen/should-generate]}
+                    :interface.def/identify-via ['[?e :obj/boolean-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -89,7 +97,8 @@
                                                                     :db/cardinality :db.cardinality/one
                                                                     :db/doc "A boolean attribute"
                                                                     :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/boolean-attr]]}}
                       :interface.ast/enum-map {}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
             (testing "generating clojure.spec definitions"
@@ -103,7 +112,8 @@
                   (is (boolean? (:obj/boolean-attr entity)))))))))
       (testing "of type :long"
         (let [spec {:interface.def/name :interface/entity-with-long
-                    :interface.def/fields {:obj/long-attr [:long "A long attribute"]}}]
+                    :interface.def/fields {:obj/long-attr [:long "A long attribute"]}
+                    :interface.def/identify-via ['[?e :obj/long-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -116,11 +126,13 @@
                                                                  :interface.ast.field/type :long
                                                                  :db/cardinality :db.cardinality/one
                                                                  :db/doc "A long attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/long-attr]]}}
                       :interface.ast/enum-map {}}))))))
       (testing "of type :bigint"
         (let [spec {:interface.def/name :interface/entity-with-bigint
-                    :interface.def/fields {:obj/bigint-attr [:bigint "A bigint attribute"]}}]
+                    :interface.def/fields {:obj/bigint-attr [:bigint "A bigint attribute"]}
+                    :interface.def/identify-via ['[?e :obj/bigint-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -133,12 +145,14 @@
                                                                  :interface.ast.field/type :bigint
                                                                  :db/cardinality :db.cardinality/one
                                                                  :db/doc "A bigint attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/bigint-attr]]}}
                       :interface.ast/enum-map {}}))))))
 
       (testing "of type :float"
         (let [spec {:interface.def/name :interface/entity-with-float
-                    :interface.def/fields {:obj/float-attr [:float "A float attribute"]}}]
+                    :interface.def/fields {:obj/float-attr [:float "A float attribute"]}
+                    :interface.def/identify-via ['[?e :obj/float-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -151,11 +165,13 @@
                                                                    :interface.ast.field/type :float
                                                                    :db/cardinality :db.cardinality/one
                                                                    :db/doc "A float attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/float-attr]]}}
                       :interface.ast/enum-map {}}))))))
       (testing "of type :double"
         (let [spec {:interface.def/name :interface/entity-with-double
-                    :interface.def/fields {:obj/double-attr [:double "A double attribute"]}}]
+                    :interface.def/fields {:obj/double-attr [:double "A double attribute"]}
+                    :interface.def/identify-via ['[?e :obj/double-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -168,11 +184,13 @@
                                                                    :interface.ast.field/type :double
                                                                    :db/cardinality :db.cardinality/one
                                                                    :db/doc "A double attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/double-attr]]}}
                       :interface.ast/enum-map {}}))))))
       (testing "of type :bigdec"
         (let [spec {:interface.def/name :interface/entity-with-bigdec
-                    :interface.def/fields {:obj/bigdec-attr [:bigdec "A bigdec attribute"]}}]
+                    :interface.def/fields {:obj/bigdec-attr [:bigdec "A bigdec attribute"]}
+                    :interface.def/identify-via ['[?e :obj/bigdec-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -185,11 +203,13 @@
                                                                    :interface.ast.field/type :bigdec
                                                                    :db/cardinality :db.cardinality/one
                                                                    :db/doc "A bigdec attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/bigdec-attr]]}}
                       :interface.ast/enum-map {}}))))))
       (testing "of type :instant"
         (let [spec {:interface.def/name :interface/entity-with-instant
-                    :interface.def/fields {:obj/instant-attr [:instant "An instant attribute" :gen/should-generate]}}]
+                    :interface.def/fields {:obj/instant-attr [:instant "An instant attribute" :gen/should-generate]}
+                    :interface.def/identify-via ['[?e :obj/instant-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -203,7 +223,8 @@
                                                                     :db/cardinality :db.cardinality/one
                                                                     :db/doc "An instant attribute"
                                                                     :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/instant-attr]]}}
                       :interface.ast/enum-map {}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
             (testing "generating clojure.spec definitions"
@@ -217,7 +238,8 @@
                   (is (inst? (:obj/instant-attr entity)))))))))
       (testing "of type :uuid"
         (let [spec {:interface.def/name :interface/entity-with-uuid
-                    :interface.def/fields {:obj/id [:uuid "A uuid" :gen/should-generate]}}]
+                    :interface.def/fields {:obj/id [:uuid "A uuid" :gen/should-generate]}
+                    :interface.def/identify-via ['[?e :obj/id]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -231,7 +253,8 @@
                                                           :db/cardinality :db.cardinality/one
                                                           :db/doc "A uuid"
                                                           :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/id]]}}
                       :interface.ast/enum-map {}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
             (testing "generating clojure.spec definitions"
@@ -245,7 +268,8 @@
                   (is (uuid? (:obj/id entity)))))))))
       (testing "of type :uri"
         (let [spec {:interface.def/name :interface/entity-with-uri
-                    :interface.def/fields {:obj/uri-attr [:uri "A uri attribute"]}}]
+                    :interface.def/fields {:obj/uri-attr [:uri "A uri attribute"]}
+                    :interface.def/identify-via ['[?e :obj/uri-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -258,7 +282,8 @@
                                                                    :interface.ast.field/type :uri
                                                                    :db/cardinality :db.cardinality/one
                                                                    :db/doc "A uri attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/uri-attr]]}}
                       :interface.ast/enum-map {}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
             (testing "generating clojure.spec definitions"
@@ -268,7 +293,8 @@
                 (is (= ::s/invalid (s/conform :obj/uri-attr "google.com"))))))))
       (testing "of type :bytes"
         (let [spec {:interface.def/name :interface/entity-with-bytes
-                    :interface.def/fields {:obj/bytes-attr [:bytes "A bytes attribute"]}}]
+                    :interface.def/fields {:obj/bytes-attr [:bytes "A bytes attribute"]}
+                    :interface.def/identify-via ['[?e :obj/bytes-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -281,7 +307,8 @@
                                                                   :interface.ast.field/type :bytes
                                                                   :db/cardinality :db.cardinality/one
                                                                   :db/doc "A bytes attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/bytes-attr]]}}
                       :interface.ast/enum-map {}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
             (testing "generating clojure.spec definitions"
@@ -293,7 +320,8 @@
       (testing "without docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-enum
                     :interface.def/fields {:obj/enum-attr ["An enum attribute"
-                                                           :enum #{:some.enum/a :some.enum/b}]}}]
+                                                           :enum #{:some.enum/a :some.enum/b}]}
+                    :interface.def/identify-via ['[?e :obj/enum-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -307,7 +335,8 @@
                                          :interface.ast.field/possible-enum-vals #{:some.enum/a :some.enum/b}
                                          :db/cardinality :db.cardinality/one
                                          :db/doc "An enum attribute"}}
-                        :interface.ast.interface/inherits #{}}}
+                        :interface.ast.interface/inherits #{}
+                        :interface.ast.interface/identify-via ['[?e :obj/enum-attr]]}}
                       :interface.ast/enum-map {:some.enum/a {:db/ident :some.enum/a}
                                                :some.enum/b {:db/ident :some.enum/b}}}))))
           (let [ast (semantic-spec->semantic-ast spec)]
@@ -322,7 +351,8 @@
                     :interface.def/fields {:obj/docstring-enum-attr ["A docstring'ed enum attribute"
                                                                      :enum {:some.doc.enum/a "Enum A"
                                                                             :some.doc.enum/b "Enum B"}
-                                                                     :gen/should-generate]}}]
+                                                                     :gen/should-generate]}
+                    :interface.def/identify-via ['[?e :obj/docstring-enum-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -337,7 +367,8 @@
                                                                            :db/cardinality :db.cardinality/one
                                                                            :db/doc "A docstring'ed enum attribute"
                                                                            :gen/should-generate true}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/docstring-enum-attr]]}}
                       :interface.ast/enum-map {:some.doc.enum/a {:db/ident :some.doc.enum/a
                                                                  :db/doc "Enum A"}
                                                :some.doc.enum/b {:db/ident :some.doc.enum/b
@@ -357,7 +388,8 @@
       (testing "without docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-many-enum
                     :interface.def/fields {:obj/many-enum-attr ["A many-cardinality enum attribute"
-                                                                [:enum] #{:some.enum/a :some.enum/b}]}}]
+                                                                [:enum] #{:some.enum/a :some.enum/b}]}
+                    :interface.def/identify-via ['[?e :obj/many-enum-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -371,14 +403,16 @@
                                                                       :interface.ast.field/possible-enum-vals #{:some.enum/a :some.enum/b}
                                                                       :db/cardinality :db.cardinality/many
                                                                       :db/doc "A many-cardinality enum attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/many-enum-attr]]}}
                       :interface.ast/enum-map {:some.enum/a {:db/ident :some.enum/a}
                                                :some.enum/b {:db/ident :some.enum/b}}}))))))
       (testing "with docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-many-docstring-enum
                     :interface.def/fields {:obj/many-docstring-enum-attr ["A many-cardinality docstring'ed enum attribute"
                                                                           [:enum] {:some.doc.enum/a "Enum A"
-                                                                                   :some.doc.enum/b "Enum B"}]}}]
+                                                                                   :some.doc.enum/b "Enum B"}]}
+                    :interface.def/identify-via ['[?e :obj/many-docstring-enum-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -387,12 +421,13 @@
                                                {:interface.ast.interface/name :interface/entity-with-many-docstring-enum
                                                 :interface.ast.interface/fields
                                                 {:obj/many-docstring-enum-attr {:db/ident :obj/many-docstring-enum-attr
-                                                                           :db/valueType :db.type/ref
-                                                                           :interface.ast.field/type :enum
-                                                                           :interface.ast.field/possible-enum-vals #{:some.doc.enum/a :some.doc.enum/b}
-                                                                           :db/cardinality :db.cardinality/many
-                                                                           :db/doc "A many-cardinality docstring'ed enum attribute"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                                                :db/valueType :db.type/ref
+                                                                                :interface.ast.field/type :enum
+                                                                                :interface.ast.field/possible-enum-vals #{:some.doc.enum/a :some.doc.enum/b}
+                                                                                :db/cardinality :db.cardinality/many
+                                                                                :db/doc "A many-cardinality docstring'ed enum attribute"}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :obj/many-docstring-enum-attr]]}}
                       :interface.ast/enum-map {:some.doc.enum/a {:db/ident :some.doc.enum/a
                                                                  :db/doc "Enum A"}
                                                :some.doc.enum/b {:db/ident :some.doc.enum/b
@@ -400,10 +435,12 @@
     (testing "with linked ref attributes"
       (let [spec {:interface.def/name :interface/entity-with-ref
                   :interface.def/fields {:entity/pet [:interface/pet "An entity's pet"
-                                                                     :gen/should-generate]}}
+                                                                     :gen/should-generate]}
+                  :interface.def/identify-via ['[?e :entity/pet]]}
             pet-spec {:interface.def/name :interface/pet
                       :interface.def/fields {:pet/name [:string "A pet's name"
-                                                                :gen/should-generate]}}
+                                                                :gen/should-generate]}
+                      :interface.def/identify-via :datomic-spec/interfaces}
             ast (semantic-spec-coll->semantic-ast [spec pet-spec])]
         (testing "generating data with default spec generators"
           (register-specs-for-ast! ast)
@@ -420,7 +457,8 @@
     (testing "with an attribute that is a collection"
       (testing "of strings"
         (let [spec {:interface.def/name :interface/entity-with-string-collection
-                    :interface.def/fields {:obj/tags [[:string] "A collection of strings"]}}]
+                    :interface.def/fields {:obj/tags [[:string] "A collection of strings"]}
+                    :interface.def/identify-via :datomic-spec/interfaces}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -433,7 +471,8 @@
                                                             :interface.ast.field/type :string
                                                             :db/cardinality :db.cardinality/many
                                                             :db/doc "A collection of strings"}}
-                                                :interface.ast.interface/inherits #{}}}
+                                                :interface.ast.interface/inherits #{}
+                                                :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/entity-with-string-collection]]}}
                       :interface.ast/enum-map {}})))))))
     (testing "with multiple attributes having multiple enums"
       (testing "semantic-spec->semantic-ast"
@@ -444,7 +483,8 @@
                                                                 :db.unique/identity
                                                                 :required]
                                                  :taggable/tags [[:string] "Tags for an entity"]
-                                                 :user/registeredAt [:instant "When a user registered"]}}]
+                                                 :user/registeredAt [:instant "When a user registered"]}
+                       :interface.def/identify-via ['[?e :user/username]]}]
         (testing "semantic-spec->semantic-ast"
           (let [ast (semantic-spec->semantic-ast user-spec)]
             (is (= ast
@@ -469,7 +509,8 @@
                                                                    :interface.ast.field/type :instant
                                                                    :db/cardinality :db.cardinality/one
                                                                    :db/doc "When a user registered"}}
-                                              :interface.ast.interface/inherits #{}}}
+                                              :interface.ast.interface/inherits #{}
+                                              :interface.ast.interface/identify-via ['[?e :user/username]]}}
                     :interface.ast/enum-map {}}))))
         (testing "generating Datomic schemas"
           (let [datomic-schemas (-> user-spec
@@ -496,9 +537,11 @@
   (testing "a collection of semantic specs"
     (testing "with internal references between specs"
       (let [specs [{:interface.def/name :interface/entity-with-valid-ref
-                    :interface.def/fields {:obj/valid-attr [:interface/refable "Valid ref"]}}
+                    :interface.def/fields {:obj/valid-attr [:interface/refable "Valid ref"]}
+                    :interface.def/identify-via ['[?e :obj/valid-attr]]}
                    {:interface.def/name :interface/refable
-                    :interface.def/fields {:refable/valid-attr [:string "Refable attr"]}}]
+                    :interface.def/fields {:refable/valid-attr [:string "Refable attr"]}
+                    :interface.def/identify-via :datomic-spec/interfaces}]
             ast (semantic-spec-coll->semantic-ast specs)]
         (testing "semantic-spec-coll->semantic-ast"
           (is (= ast
@@ -510,7 +553,8 @@
                                                                          :interface.ast.field/type :interface/refable
                                                                          :db/cardinality :db.cardinality/one
                                                                          :db/doc "Valid ref"}}
-                                                     :interface.ast.interface/inherits #{}}
+                                                     :interface.ast.interface/inherits #{}
+                                                     :interface.ast.interface/identify-via ['[?e :obj/valid-attr]]}
                    :interface/refable {:interface.ast.interface/name :interface/refable
                                        :interface.ast.interface/fields
                                          {:refable/valid-attr {:db/ident :refable/valid-attr
@@ -518,7 +562,8 @@
                                                                :interface.ast.field/type :string
                                                                :db/cardinality :db.cardinality/one
                                                                :db/doc "Refable attr"}}
-                                       :interface.ast.interface/inherits #{}}}
+                                       :interface.ast.interface/inherits #{}
+                                       :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/refable]]}}
                   :interface.ast/enum-map {}}))
           (testing "sets :db/valueType to :db.type/ref"
             (is (= :db.type/ref (get-in ast [:interface.ast/interfaces
@@ -528,7 +573,8 @@
                                              :db/valueType])))))))
     (testing "with internal references to undefined specs"
       (let [specs [{:interface.def/name :interface/entity-with-invalid-ref
-                    :interface.def/fields {:obj/invalid-attr [:interface/some-undefined-type "Is invalid"]}}]]
+                    :interface.def/fields {:obj/invalid-attr [:interface/some-undefined-type "Is invalid"]}
+                    :interface.def/identify-via ['[?e :obj/invalid-attr]]}]]
         (testing "semantic-spec-coll->semantic-ast"
           (is (thrown-with-msg? clojure.lang.ExceptionInfo
                                 #"Invalid attribute type :interface/some-undefined-type"
@@ -545,7 +591,8 @@
                                                       :db/valueType :db.type/string
                                                       :interface.ast.field/type :string
                                                       :db/cardinality :db.cardinality/one}}
-                                       :interface.ast.interface/inherits #{:interface/mother :interface/father}}
+                                       :interface.ast.interface/inherits #{:interface/mother :interface/father}
+                                       :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/child]]}
                      :interface/mother {:interface.ast.interface/name :interface/mother
                                         :interface.ast.interface/fields
                                         {:person/personality {:db/ident :person/personality
@@ -553,14 +600,16 @@
                                                               :interface.ast.field/type :enum
                                                               :interface.ast.field/possible-enum-vals #{:happy :sad}
                                                               :db/cardinality :db.cardinality/one}}
-                                        :interface.ast.interface/inherits #{}}
+                                        :interface.ast.interface/inherits #{}
+                                        :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/mother]]}
                      :interface/father {:interface.ast.interface/name :interface/father
                                         :interface.ast.interface/fields
                                         {:person/bald? {:db/ident :person/bald?
                                                         :db/valueType :db.type/boolean
                                                         :interface.ast.field/type :boolean
                                                         :db/cardinality :db.cardinality/one}}
-                                        :interface.ast.interface/inherits #{}}}
+                                        :interface.ast.interface/inherits #{}
+                                        :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/father]]}}
                     :interface.ast/enum-map {:happy {:db/ident :happy}
                                              :sad {:db/ident :sad}}}))))
         (testing "generating clojure.spec definitions"
