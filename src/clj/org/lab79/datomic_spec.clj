@@ -63,6 +63,10 @@
 (s/def :interface.def/field
   (s/cat :field-tags (s/+ :interface.def.field/trait)))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
+(s/def :datalog/clause (s/or :datalog/pair (s/tuple #{'?e} keyword? any?)
+                             :datalog/triplet (s/tuple #{'?e} keyword?)))
+(s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
+                                         :identify-via/datalog-clause (s/coll-of :datalog/clause :kind vector?)))
 (s/def :interface.def.field/trait
   (s/alt :doc           :db/doc
          :unique        :db/unique
