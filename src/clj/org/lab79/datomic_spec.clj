@@ -19,9 +19,13 @@
   (:import (java.util Date)
            (datomic.db DbId)))
 
+
+(s/fdef arity
+        :args (s/cat :f fn?)
+        :ret boolean?)
 (defn- arity [f]
-  {:pre [(instance? clojure.lang.AFunction f)]}
   (-> f class .getDeclaredMethods first .getParameterTypes alength))
+(stest/instrument `arity)
 
 ;
 ; Datomic clojure.spec
