@@ -420,71 +420,16 @@
 (s/def :clojure.spec/deps-graph any?)
 (s/def :clojure.spec/macros (s/map-of keyword? any?))
 
-(defn extract-deps-graph&macros-for-field
-  "Incorporates any clojure.spec dependencies this field has, in addition the macro to run later
-  that will register this field as a clojure.spec."
-  [field gen-map deps-graph]
-  (let [{:keys [; required
-                db/ident
-                interface.ast.field/type
-                db/cardinality
-                ; optional
-                interface.ast.field/possible-enum-vals
-                ; TODO Anything we can do to test uniqueness in predicates returned by ast-field-type->predicate (?)
-                db/unique]} field
-        pred (if possible-enum-vals
-               (ast-field-type->predicate type possible-enum-vals)
-               (ast-field-type->predicate type))
-        deps-graph' (if (and (keyword? pred) (not= ident pred))
-                      (ssdep/depend deps-graph ident pred)
-                      deps-graph)]
-    {:clojure.spec/deps-graph deps-graph'
-     :clojure.spec/macros
-        {ident (let [custom-generator-factory (get gen-map ident)]
-                 (case cardinality
-                   :db.cardinality/many
-                   (if custom-generator-factory
-                     `(s/def ~ident (s/with-gen (s/coll-of ~pred :kind set?)
-                                                ~#(case (arity custom-generator-factory)
-                                                   1 (let [member-gen (eval (macroexpand `(s/gen ~pred)))]
-                                                       (custom-generator-factory member-gen))
-                                                   (custom-generator-factory))))
-                     (case type
-                       :string `(s/def ~ident
-                                  (s/with-gen (s/coll-of ~pred :kind set?)
-                                              #(gen/set (gen/not-empty (gen/string-alphanumeric)))))
-                       `(s/def ~ident (s/coll-of ~pred :kind set?))))
-
-                   :db.cardinality/one
-                   (if custom-generator-factory
-                     `(s/def ~ident (s/with-gen ~pred
-                                                ~#(custom-generator-factory)))
-                     (case type
-                       :string `(s/def ~ident
-                                  (s/with-gen ~pred
-                                              #(gen/not-empty (gen/string-alphanumeric))))
-                       `(s/def ~ident ~pred)))))}}))
-(s/fdef extract-deps-graph&macros-for-field
-        :args (s/cat :ast/field :interface.ast/field
-                     :gen-map :interface/gen-map
-                     :deps-graph :clojure.spec/deps-graph)
-        :ret (s/keys :clojure.spec/deps-graph
-                     :clojure.spec/macros))
-(stest/instrument `extract-deps-graph&macros-for-field)
-
 (defn- ast&interface->ast-fields
   "Returns the set of all fields that represent an interface."
   [ast interface]
   (let [{:keys [interface.ast/interfaces]} ast
         {:interface.ast.interface/keys [fields inherits]} interface
+        immediate-fields (vals fields)
         inherited-fields (->> inherits
                               (map interfaces)
-                              (reduce (fn [inherited-fields interface]
-                                        (into inherited-fields (ast&interface->ast-fields ast interface)))
-                                      #{}))
-        fields (into #{} (vals fields))
-        all-fields (into fields inherited-fields)]
-    all-fields))
+                              (mapcat (partial ast&interface->ast-fields ast)))]
+    (into (set inherited-fields) immediate-fields)))
 (s/fdef ast&interface->ast-fields
         :args (s/cat :ast :interface/ast
                      :ast/interface :interface.ast/interface)
@@ -498,7 +443,25 @@
   (let [interface (-> ast :interface.ast/interfaces interface-name)
         {:keys [interface.ast.interface/inherits]} interface]
     (into inherits (mapcat #(all-inherited-interface-names ast %) inherits))))
+(s/fdef all-inherited-interface-names
+        :args (s/cat :ast :interface/ast
+                     :interface-name keyword?)
+        :ret (s/coll-of string? :kind set?))
+(stest/instrument `all-inherited-interface-names)
 
+(s/def :gen/generator-factory (s/fspec :args (s/cat :member-generator (s/? :gen/member-generator))
+                                       :ret any?))
+; TODO Be more specific than any?
+(s/def :gen/member-generator any?)
+
+(s/fdef self&inherited-interface-gen
+        :args (s/cat :ast :interface.ast
+                     :interface-name keyword?
+                     :req-fields (s/coll-of :interface.ast/field :kind vector?)
+                     :opt-fields (s/coll-of :interface.ast/field :kind vector?)
+                     :gen-map :interface/gen-map
+                     :custom-generator-factory (s/? :gen/generator-factory))
+        :ret any?)
 (defn self&inherited-interface-gen
   ; TODO Add docstring
   "Returns the entity map spec for the given interface represented by `interface-name`."
@@ -545,70 +508,135 @@
                                                     :req ~(conj (mapv :db/ident req-fields) :db/id)
                                                     :opt ~(mapv :db/ident opt-fields)))))))))
 
-(defn extract-deps-graph&macros-for-interface
-  "Incorporates any clojure.spec dependencies this interface has, in addition the macros to run later
-  that will register this interface and its respective fields as a clojure.spec."
-  [ast interface gen-map deps-graph]
-  (let [{:interface.ast.interface/keys [name inherits]} interface
-        all-fields (ast&interface->ast-fields ast interface)]
-    (reduce
-      (fn [{:keys [clojure.spec/deps-graph clojure.spec/macros]} field]
-        (let [{field-macros :clojure.spec/macros
-               :keys [clojure.spec/deps-graph]} (extract-deps-graph&macros-for-field field gen-map deps-graph)]
-          {:clojure.spec/deps-graph (ssdep/depend deps-graph name (:db/ident field))
-           :clojure.spec/macros (merge macros field-macros)}))
-      {:clojure.spec/deps-graph (reduce
-                                  (fn [deps-graph inherited-interface-name]
-                                    (ssdep/depend deps-graph name inherited-interface-name))
-                                  deps-graph
-                                  inherits)
-       :clojure.spec/macros
-          {name (let [{req-fields true
-                       opt-fields false
-                       :or {req-fields []
-                            ; TODO Try without contains? Use nil insteadof false for opt-fields
-                            opt-fields []}} (group-by #(contains? % :interface.ast.field/required) all-fields)
-                      {gen-fields true} (group-by :gen/should-generate all-fields)]
-                  (if-let [custom-generator-factory (get gen-map name)]
-                    `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields gen-map custom-generator-factory))
-                    (if (seq gen-fields)
-                      `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields {} (apply ensure-keys-gen (map :db/ident gen-fields))))
-                      `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields gen-map)))))}}
-      all-fields)))
-(s/fdef extract-deps-graph&macros-for-interface
+(def ^:private NATIVE-TYPES
+  #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
+
+(defn- interface-type?
+  [type]
+  (not (contains? NATIVE-TYPES type)))
+
+(s/fdef add-interface-to-deps-graph
         :args (s/cat :ast :interface/ast
                      :ast/interface :interface.ast/interface
-                     :gen-map :interface/gen-map
                      :deps-graph :clojure.spec/deps-graph)
-        :ret (s/keys :clojure.spec/deps-graph
-                     :clojure.spec/macros))
-(stest/instrument `extract-deps-graph&macros-for-interface)
+        :ret :clojure.spec/deps-graph)
+(defn- add-interface-to-deps-graph
+  "Adds the interface and its inherited, field, and pointer dependencies to the dependency graph `deps-graph`"
+  [ast interface deps-graph]
+  (let [{:interface.ast.interface/keys [name inherits]} interface
+        all-fields (ast&interface->ast-fields ast interface)
+        field-deps (map :db/ident all-fields)
+        ref-deps (->> all-fields
+                      (map :interface.ast.field/type)
+                      (filter #(and (interface-type? %) (not= name %))))
+        dependencies (concat inherits field-deps ref-deps)]
+    (reduce #(ssdep/depend %1 name %2) deps-graph dependencies)))
+(stest/instrument `add-interface-to-deps-graph)
 
-(defn extract-deps-graph&macros-for-ast
-  [ast gen-map]
-  (let [{:keys [interface.ast/interfaces]} ast]
-    (reduce
-      (fn [{:clojure.spec/keys [deps-graph macros]} interface]
-        (let [{interface-macros :clojure.spec/macros
-               :keys [clojure.spec/deps-graph]} (extract-deps-graph&macros-for-interface
-                                                  ast interface gen-map deps-graph)]
-          {:clojure.spec/macros (merge macros interface-macros)
-           :clojure.spec/deps-graph deps-graph}))
-      {:clojure.spec/deps-graph (ssdep/graph)
-       :clojure.spec/macros {}}
-      (vals interfaces))))
-(s/fdef extract-deps-graph&macros-for-ast
+; TODO Add fdef
+(s/fdef field->clojure-spec-macro
+        :arg (s/cat :field :interface.ast/field
+                    :custom-generator-factory fn?)
+        :ret any?)
+(defn- field->clojure-spec-macro
+  "Returns the clojure.spec macro for the given `field`, with an optional `custom-generator-factory`"
+  [field custom-generator-factory]
+  (let [{:keys [; required
+                db/ident
+                interface.ast.field/type
+                db/cardinality
+                ; optional
+                interface.ast.field/possible-enum-vals]} field
+        pred (if possible-enum-vals
+               (ast-field-type->predicate type possible-enum-vals)
+               (ast-field-type->predicate type))]
+    (case cardinality
+      :db.cardinality/many
+      (if custom-generator-factory
+        `(s/def ~ident (s/with-gen (s/coll-of ~pred :kind set?)
+                                   ~#(case (arity custom-generator-factory)
+                                      1 (let [member-gen (eval (macroexpand `(s/gen ~pred)))]
+                                          (custom-generator-factory member-gen))
+                                      (custom-generator-factory))))
+        (case type
+          :string `(s/def ~ident
+                     (s/with-gen (s/coll-of ~pred :kind set?)
+                                 #(gen/set (gen/not-empty (gen/string-alphanumeric)))))
+          `(s/def ~ident (s/coll-of ~pred :kind set?))))
+
+      :db.cardinality/one
+      (if custom-generator-factory
+        `(s/def ~ident (s/with-gen ~pred
+                                   ~#(custom-generator-factory)))
+        (case type
+          :string `(s/def ~ident
+                     (s/with-gen ~pred
+                                 #(gen/not-empty (gen/string-alphanumeric))))
+          `(s/def ~ident ~pred))))))
+(stest/instrument `field->clojure-spec-macro)
+
+(s/fdef interface->clojure-spec-macros
+        :args (s/cat :ast :interface/ast
+                     :ast/interface :interface.ast/interface
+                     :gen-map :interface/gen-map)
+        :ret :clojure.spec/macros)
+(defn- interface->clojure-spec-macros
+  "Returns the clojure.spec macros that will register this interface and its respective fields as clojure.spec's."
+  [ast interface gen-map]
+  (let [{:keys [interface.ast.interface/name]} interface
+        all-fields (ast&interface->ast-fields ast interface)
+        interface-macro (let [{req-fields true
+                               opt-fields false
+                               :or {req-fields []
+                                    ; TODO Try without contains? Use nil instead of false for opt-fields
+                                    ; TODO In the middle of fields-that-need-specs to ignore
+                                    opt-fields []}} (group-by #(contains? % :interface.ast.field/required) all-fields)
+                              {gen-fields true} (group-by :gen/should-generate all-fields)]
+                          (if-let [custom-generator-factory (get gen-map name)]
+                            `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields gen-map custom-generator-factory))
+                            (if (seq gen-fields)
+                              `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields {} (apply ensure-keys-gen (map :db/ident gen-fields))))
+                              `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields gen-map)))))]
+    (->> all-fields
+         (filter #(not= (:db/ident %) :datomic-spec/interfaces))
+         (reduce (fn [macros {:keys [db/ident] :as field}]
+                   (merge macros
+                          {ident (field->clojure-spec-macro field (get gen-map ident))}))
+                 {name interface-macro}))))
+(stest/instrument `interface->clojure-spec-macros)
+
+(s/fdef deps-graph-for-ast
+        :args (s/cat :ast :interface/ast)
+        :ret :clojure.spec/deps-graph)
+(defn- deps-graph-for-ast
+  "Given the intermediate AST, returns the dependency graph that encapsulates the dependencies of an
+  interface, including immediate and inherited fields, inherited interfaces, and interfaces to which it points."
+  [{:keys [interface.ast/interfaces] :as ast}]
+  (reduce #(add-interface-to-deps-graph ast %2 %1)
+          (ssdep/graph)
+          (vals interfaces)))
+(stest/instrument `deps-graph-for-ast)
+
+(s/fdef ast->clojure-spec-macros
         :args (s/cat :ast :interface/ast
                      :gen-map :interface/gen-map)
-        :ret (s/keys :clojure.spec/deps-graph
-                     :clojure.spec/macros))
-(stest/instrument `extract-deps-graph&macros-for-ast)
+        :ret :clojure.spec/macros)
+(defn- ast->clojure-spec-macros
+  "Given the intermediate AST and a mapping of field and interface names to test.check generators, this returns
+  the clojure.spec macros that we can expand and evaluate later."
+  [{:keys [interface.ast/interfaces] :as ast} gen-map]
+  (reduce
+    (fn [macros interface] (merge macros (interface->clojure-spec-macros ast interface gen-map)))
+    {}
+    (vals interfaces)))
+(stest/instrument `ast->clojure-spec-macros)
 
 (defn register-generative-specs-for-ast!
   "Given an entire interface AST and some custom generators for some fields,
   register all clojure.spec specs that should be associated with the AST."
   [ast gen-map]
-  (let [{:clojure.spec/keys [macros deps-graph]} (extract-deps-graph&macros-for-ast ast gen-map)]
+  (let [macros (ast->clojure-spec-macros ast gen-map)
+        deps-graph (deps-graph-for-ast ast)]
     (doseq [spec-name (ssdep/topo-sort deps-graph)]
       (eval (macroexpand (macros spec-name))))))
 (s/fdef register-generative-specs-for-ast!
