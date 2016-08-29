@@ -27,7 +27,7 @@
   (fn [keys-spec-macro]
     (let [{req-keys :req optional-keys :opt} (apply hash-map (rest keys-spec-macro))
           optional-keys-to-generate (clojure.set/difference (set optional-keys) (set ensure-keys))
-          optional-for-hash-map (mapv #(vec [% `(gen/delay (s/gen ~%))]) opt-keys)
+          optional-for-hash-map (mapv #(vec [% `(gen/delay (s/gen ~%))]) optional-keys-to-generate)
           ensured-for-hash-map (mapv #(vec [% `(s/gen ~%)]) (into ensure-keys req-keys))]
       `(gen/bind
          ; Determine how many optional keys to generate
