@@ -164,6 +164,11 @@
                                       :db/id :db.install/_attribute]
                                 :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext])))
 
+(s/def :interface/field-def-parser
+  (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
+(s/fdef parse-field-def
+        :args (s/cat :field-def (s/spec :interface.def/field) :field-name keyword?)
+        :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
 (defn- parse-field-def
   [field-def field-name]
   (let [{:keys [field-tags]} (s/conform :interface.def/field field-def)
@@ -248,13 +253,11 @@
                [[:required _]] (assoc-in parsed [:interface.ast/field :interface.ast.field/required] true)))
       parsed
       field-tags)))
-(s/def :interface/field-def-parser
-  (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
-(s/fdef parse-field-def
-        :args (s/cat :field-def (s/spec :interface.def/field) :field-name keyword?)
-        :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
 (stest/instrument `parse-field-def)
 
+(s/fdef semantic-spec->semantic-ast
+        :args (s/cat :spec :interface/def)
+        :ret :interface/ast)
 (defn semantic-spec->semantic-ast
   "Converts a user-readability-optimized semantic schema spec into a AST that can be used to generate Datomic
   schemas, generate test data, etc."
@@ -285,11 +288,11 @@
         :identify-via identify-via'}}
      :interface.ast/enum-map (cond-> enum-map
                                      (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name}}))}))
-(s/fdef semantic-spec->semantic-ast
-         :args (s/cat :spec :interface/def)
-         :ret :interface/ast)
 (stest/instrument `semantic-spec->semantic-ast)
 
+(s/fdef only-db-keys
+        :args (s/cat :map (s/map-of keyword? any?))
+        :ret (s/map-of keyword? any?))
 (defn- only-db-keys
   [m]
   (into {} (filter
@@ -299,11 +302,15 @@
                          (:k key))]
                (re-matches #"^db" (namespace kw)))
              m)))
-(s/fdef only-db-keys
-        :args (s/cat :map (s/map-of keyword? any?))
-        :ret (s/map-of keyword? any?))
 (stest/instrument `only-db-keys)
 
+(def tempid-factory-spec (s/fspec :args (s/cat :partition keyword? :num (s/? number?))
+                                  :ret db-id?))
+(s/fdef semantic-ast->datomic-schemas
+        ; TODO Added this during oss
+        :args (s/cat :ast :interface/ast
+                     :tempid-factory tempid-factory-spec)
+        :ret (s/coll-of :datomic/schema :kind vector?))
 (defn semantic-ast->datomic-schemas
   "Given a semantic AST, generates edn that represents attributes to add to
   Datomic schema. `tempid` will be passed in and will be `datomic.api/tempid`."
@@ -321,25 +328,18 @@
                                (assoc :db/id (tempid-factory :db.part/db)
                                       :db.install/_attribute :db.part/db)))))]
     (into [] (concat enum-datoms field-datoms))))
-(def tempid-factory-spec (s/fspec :args (s/cat :partition keyword? :num (s/? number?))
-                                  :ret db-id?))
-(s/fdef semantic-ast->datomic-schemas
-        ; TODO Added this during oss
-         :args (s/cat :ast :interface/ast
-                      :tempid-factory tempid-factory-spec)
-         :ret (s/coll-of :datomic/schema :kind vector?))
 (stest/instrument `semantic-ast->datomic-schemas)
 
+(s/fdef semantic-spec->datomic-schemas
+        :args (s/cat :spec :interface/def
+                     :tempid-factory tempid-factory-spec)
+        :ret (s/+ :datomic/schema))
 (defn semantic-spec->datomic-schemas
   "Given a semantic spec, generates edn that represents attributes to add to Datomic schema"
   [spec tempid-factory]
   (-> spec
       semantic-spec->semantic-ast
       (semantic-ast->datomic-schemas tempid-factory)))
-(s/fdef semantic-spec->datomic-schemas
-         :args (s/cat :spec :interface/def
-                      :tempid-factory tempid-factory-spec)
-         :ret (s/+ :datomic/schema))
 (stest/instrument `semantic-spec->datomic-schemas)
 
 (defn validate-semantic-ast
@@ -362,6 +362,9 @@
                                :interface-name interface-name
                                :field field})))))))))
 
+(s/fdef semantic-spec-coll->semantic-ast
+        :args (s/cat :specs (s/spec (s/+ :interface/def)))
+        :ret :interface/ast)
 (defn semantic-spec-coll->semantic-ast
   "Given a collection of semantic specs, generates a semantic ast"
   [specs]
@@ -369,22 +372,19 @@
         combined-ast (apply merge-with merge asts)]
     (validate-semantic-ast combined-ast)
     combined-ast))
-(s/fdef semantic-spec-coll->semantic-ast
-         :args (s/cat :specs (s/spec (s/+ :interface/def)))
-         :ret :interface/ast)
 (stest/instrument `semantic-spec-coll->semantic-ast)
 
 ; TODO Rename
+(s/fdef semantic-spec-coll->datomic-schemas
+        :args (s/cat :specs (s/spec (s/+ :interface/def))
+                     :tempid-factory tempid-factory-spec)
+        :ret (s/+ :datomic/schema))
 (defn semantic-spec-coll->datomic-schemas
   "Given a collection of semantic specs, generates edn that represents attributes to add to Datomic schema"
   [specs tempid-factory]
   (-> specs
       semantic-spec-coll->semantic-ast
       (semantic-ast->datomic-schemas tempid-factory)))
-(s/fdef semantic-spec-coll->datomic-schemas
-         :args (s/cat :specs (s/spec (s/+ :interface/def))
-                      :tempid-factory tempid-factory-spec)
-         :ret (s/+ :datomic/schema))
 (stest/instrument `semantic-spec-coll->datomic-schemas)
 
 (defn validate-semantic-interfaces
@@ -427,6 +427,10 @@
 (s/def :clojure.spec/deps-graph any?)
 (s/def :clojure.spec/macros (s/map-of keyword? any?))
 
+(s/fdef ast&interface->ast-fields
+        :args (s/cat :ast :interface/ast
+                     :ast/interface :interface.ast/interface)
+        :ret (s/coll-of :interface.ast/field :kind set?))
 (defn- ast&interface->ast-fields
   "Returns the set of all fields that represent an interface."
   [ast interface]
@@ -437,16 +441,12 @@
                               (map interfaces)
                               (mapcat (partial ast&interface->ast-fields ast)))]
     (into (set inherited-fields) immediate-fields)))
-(s/fdef ast&interface->ast-fields
-        :args (s/cat :ast :interface/ast
-                     :ast/interface :interface.ast/interface)
-        :ret (s/coll-of :interface.ast/field :kind set?))
 (stest/instrument `ast&interface->ast-fields)
 
 (s/fdef all-inherited-interface-names
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?)
-        :ret (s/coll-of string? :kind set?))
+        :ret (s/coll-of keyword? :kind set?))
 (defn- all-inherited-interface-names
   "Returns the union of all immediately inherited and recursively inherited interfaces
   for a given interface represented by `interface-name`."
@@ -549,7 +549,6 @@
     (reduce #(ssdep/depend %1 name %2) deps-graph dependencies)))
 (stest/instrument `add-interface-to-deps-graph)
 
-; TODO Add fdef
 (s/fdef field->clojure-spec-macro
         :arg (s/cat :field :interface.ast/field
                     ; TODO Better than any?
@@ -646,6 +645,9 @@
     (vals interfaces)))
 (stest/instrument `ast->clojure-spec-macros)
 
+(s/fdef register-generative-specs-for-ast!
+        :args (s/cat :ast :interface/ast
+                     :gen-map :interface/gen-map))
 (defn register-generative-specs-for-ast!
   "Given an entire interface AST and some custom generators for some fields,
   register all clojure.spec specs that should be associated with the AST."
@@ -654,17 +656,14 @@
         deps-graph (deps-graph-for-ast ast)]
     (doseq [spec-name (ssdep/topo-sort deps-graph)]
       (eval (macroexpand (macros spec-name))))))
-(s/fdef register-generative-specs-for-ast!
-        :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map))
 (stest/instrument `register-generative-specs-for-ast!)
 
+(s/fdef register-specs-for-ast!
+        :args (s/cat :ast :interface/ast)
+        :ret any?)
 (defn register-specs-for-ast!
   "Given an entire interface AST, register all clojure.spec specs that
   should be associated with the AST."
   [ast]
   (register-generative-specs-for-ast! ast {}))
-(s/fdef register-specs-for-ast!
-        :args (s/cat :ast :interface/ast)
-        :ret any?)
 (stest/instrument `register-specs-for-ast!)
