@@ -23,20 +23,18 @@
 (defn ensure-keys-gen
   "Returns a generator factory that ensures every generated map has at least
   the keys specified by `field-keys`."
-  [& field-keys]
+  [& ensure-keys]
   (fn [keys-spec-macro]
     (let [{req-keys :req optional-keys :opt} (apply hash-map (rest keys-spec-macro))
-          ensure-keys (set field-keys)
-          ensured-keys (into ensure-keys req-keys)
-          opt-keys (clojure.set/difference (set optional-keys) ensure-keys)
-          egen (fn [k] [k `(s/gen ~k)])
-          ogen (fn [k] [k `(gen/delay (s/gen ~k))])]
-      `(gen/bind (gen/choose 0 (count ~opt-keys))
-                (fn [~'lower]
-                  (let [~'ensures ~(into #{} (map egen ensured-keys))
-                        ~'opts ~(into #{} (map ogen opt-keys))
-                        ~'args (concat (seq ~'ensures) (when (seq ~'opts) (shuffle (seq ~'opts))))]
-                    (->> ~'args
-                         (take (+ ~'lower (count ~'ensures)))
-                         (apply clojure.core/concat)
-                         (apply gen/hash-map))))))))
+          optional-keys-to-generate (clojure.set/difference (set optional-keys) (set ensure-keys))
+          optional-for-hash-map (mapv #(vec [% `(gen/delay (s/gen ~%))]) opt-keys)
+          ensured-for-hash-map (mapv #(vec [% `(s/gen ~%)]) (into ensure-keys req-keys))]
+      `(gen/bind
+         ; Determine how many optional keys to generate
+         (gen/choose 0 ~(count optional-keys-to-generate))
+         (fn [~'num-optional-keys-to-generate]
+           (let [~'args-in-kv-pairs (concat ~ensured-for-hash-map (shuffle ~optional-for-hash-map))]
+             (->> ~'args-in-kv-pairs
+                  (take (+ ~'num-optional-keys-to-generate ~(count ensured-for-hash-map)))
+                  (apply concat)
+                  (apply gen/hash-map))))))))
