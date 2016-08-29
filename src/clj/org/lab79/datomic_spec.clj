@@ -272,10 +272,18 @@
         identify-via' (if (= :datomic-spec/interfaces identify-via)
                         [['?e :datomic-spec/interfaces name]]
                         identify-via)]
-    {:interface.ast/interfaces {name {:interface.ast.interface/name name
-                                      :interface.ast.interface/fields interface-fields
-                                      :interface.ast.interface/inherits (into #{} inherits)
-                                      :interface.ast.interface/identify-via identify-via'}}
+    {:interface.ast/interfaces
+      {name #:interface.ast.interface
+       {:name name
+        :fields (cond-> interface-fields
+                        (= :datomic-spec/interfaces identify-via) (merge {:datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                                                    :db/valueType :db.type/ref
+                                                                                                    :interface.ast.field/type :enum
+                                                                                                    :interface.ast.field/possible-enum-vals #{name}
+                                                                                                    :interface.ast.field/required true
+                                                                                                    :db/cardinality :db.cardinality/many}}))
+        :inherits (set inherits)
+        :identify-via identify-via'}}
      :interface.ast/enum-map (cond-> enum-map
                                      (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name}}))}))
 (s/fdef semantic-spec->semantic-ast
@@ -436,6 +444,10 @@
         :ret (s/coll-of :interface.ast/field :kind set?))
 (stest/instrument `ast&interface->ast-fields)
 
+(s/fdef all-inherited-interface-names
+        :args (s/cat :ast :interface/ast
+                     :interface-name keyword?)
+        :ret (s/coll-of string? :kind set?))
 (defn- all-inherited-interface-names
   "Returns the union of all immediately inherited and recursively inherited interfaces
   for a given interface represented by `interface-name`."
@@ -443,70 +455,75 @@
   (let [interface (-> ast :interface.ast/interfaces interface-name)
         {:keys [interface.ast.interface/inherits]} interface]
     (into inherits (mapcat #(all-inherited-interface-names ast %) inherits))))
-(s/fdef all-inherited-interface-names
-        :args (s/cat :ast :interface/ast
-                     :interface-name keyword?)
-        :ret (s/coll-of string? :kind set?))
 (stest/instrument `all-inherited-interface-names)
 
-(s/def :gen/generator-factory (s/fspec :args (s/cat :member-generator (s/? :gen/member-generator))
-                                       :ret any?))
+;(s/def :gen/generator-factory (s/fspec :args (s/cat :member-generator (s/? :gen/member-generator))
+;                                       :ret any?))
+(s/def :gen/generator-factory fn?)
 ; TODO Be more specific than any?
 (s/def :gen/member-generator any?)
 
-(s/fdef self&inherited-interface-gen
-        :args (s/cat :ast :interface.ast
+(s/fdef interface->clojure-spec-macros
+        :args (s/cat :ast :interface/ast
                      :interface-name keyword?
                      :req-fields (s/coll-of :interface.ast/field :kind vector?)
                      :opt-fields (s/coll-of :interface.ast/field :kind vector?)
                      :gen-map :interface/gen-map
                      :custom-generator-factory (s/? :gen/generator-factory))
         :ret any?)
-(defn self&inherited-interface-gen
-  ; TODO Add docstring
-  "Returns the entity map spec for the given interface represented by `interface-name`."
+; TODO Make sure enums include all-inherited for datomic-spec/interfaces
+(defn- interface->clojure-spec-macros
+  "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   ([ast interface-name req-fields opt-fields gen-map]
     (let [all-inherited (all-inherited-interface-names ast interface-name)
-          inherited-custom-generators? (->> all-inherited
-                                           (map gen-map)
-                                           (filter (comp not nil?))
-                                           seq)]
+          inherited-custom-generators? (seq (keep gen-map all-inherited))
+          identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
+          spec `(s/keys
+                  :req ~(conj (mapv :db/ident req-fields) :db/id)
+                  :opt ~(mapv :db/ident opt-fields))]
       (if inherited-custom-generators?
-        `(s/with-gen (s/keys
-                       :req ~(conj (mapv :db/ident req-fields) :db/id)
-                       :opt ~(mapv :db/ident opt-fields))
-                     (fn []
-                       (gen/fmap
-                         #(apply merge %)
-                         ~(cons 'clojure.spec.gen/tuple (map (fn [x] `(s/gen ~x)) all-inherited)))))
-        `(s/keys
-           :req ~(conj (mapv :db/ident req-fields) :db/id)
-           :opt ~(mapv :db/ident opt-fields)))))
+        `(s/with-gen ~spec
+                     #(gen/fmap
+                       (comp (partial apply merge)
+                             (fn [~'xs] (conj ~'xs (if identify-via-datomic-spec-interfaces?
+                                                     {:datomic-spec/interfaces (conj all-inherited interface-name)}
+                                                     {}))))
+                       ~(cons 'clojure.spec.gen/tuple (map (fn [x] `(s/gen ~x)) all-inherited))))
+        (if-not identify-via-datomic-spec-interfaces?
+          spec
+          `(s/with-gen ~spec
+                       #(gen/fmap
+                         (comp (partial apply merge)
+                               (fn [~'xs] (conj ~'xs {:datomic-spec/interfaces ~(conj all-inherited interface-name)})))
+                         (clojure.spec.gen/tuple (s/gen ~spec))))))))
+
   ([ast interface-name req-fields opt-fields gen-map custom-generator-factory]
    (let [all-inherited (all-inherited-interface-names ast interface-name)
-         inherited-custom-generators? (->> all-inherited
-                                           (map gen-map)
-                                           (filter (comp not nil?))
-                                           seq)]
+         inherited-custom-generators? (seq (keep gen-map all-inherited))
+         identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
+         spec `(s/keys
+                 :req ~(conj (mapv :db/ident req-fields) :db/id)
+                 :opt ~(mapv :db/ident opt-fields))]
      (if inherited-custom-generators?
-       `(s/with-gen (s/keys
-                      :req ~(conj (mapv :db/ident req-fields) :db/id)
-                      :opt ~(mapv :db/ident opt-fields))
-                    (fn []
-                      (gen/fmap
-                        (fn [~'x] (apply merge ~'x))
-                        ~(cons 'clojure.spec.gen/tuple
-                               (cons (custom-generator-factory `(s/keys
-                                                                  :req ~(conj (mapv :db/ident req-fields) :db/id)
-                                                                  :opt ~(mapv :db/ident opt-fields)))
-                                     (map (fn [x] `(s/gen ~x)) all-inherited))))))
-       `(s/with-gen (s/keys
-                      :req ~(conj (mapv :db/ident req-fields) :db/id)
-                      :opt ~(mapv :db/ident opt-fields))
-                    (fn []
-                      ~(custom-generator-factory `(s/keys
-                                                    :req ~(conj (mapv :db/ident req-fields) :db/id)
-                                                    :opt ~(mapv :db/ident opt-fields)))))))))
+       `(s/with-gen ~spec
+                    #(gen/fmap
+                      (comp (partial apply merge)
+                            (fn [~'xs] (conj ~'xs (if identify-via-datomic-spec-interfaces?
+                                                    {:datomic-spec/interfaces (conj all-inherited interface-name)}
+                                                    {}))))
+                      ~(cons 'clojure.spec.gen/tuple
+                             (cons (custom-generator-factory spec)
+                                   (map (fn [x] `(s/gen ~x)) all-inherited)))))
+       `(s/with-gen ~spec
+                    ~(if-not identify-via-datomic-spec-interfaces?
+                       `(fn []
+                          ~(custom-generator-factory spec))
+                      `#(gen/fmap
+                         ~(if identify-via-datomic-spec-interfaces?
+                            `(fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~(conj all-inherited interface-name)}))
+                            `identity)
+                         ~(custom-generator-factory spec))))))))
+(stest/instrument `interface->clojure-spec-macros)
 
 (def ^:private NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
@@ -536,7 +553,8 @@
 ; TODO Add fdef
 (s/fdef field->clojure-spec-macro
         :arg (s/cat :field :interface.ast/field
-                    :custom-generator-factory fn?)
+                    ; TODO Better than any?
+                    :custom-generator-factory any?)
         :ret any?)
 (defn- field->clojure-spec-macro
   "Returns the clojure.spec macro for the given `field`, with an optional `custom-generator-factory`"
@@ -575,35 +593,33 @@
           `(s/def ~ident ~pred))))))
 (stest/instrument `field->clojure-spec-macro)
 
-(s/fdef interface->clojure-spec-macros
+(s/fdef interface->clojure-spec-defs
         :args (s/cat :ast :interface/ast
                      :ast/interface :interface.ast/interface
                      :gen-map :interface/gen-map)
         :ret :clojure.spec/macros)
-(defn- interface->clojure-spec-macros
+(defn- interface->clojure-spec-defs
   "Returns the clojure.spec macros that will register this interface and its respective fields as clojure.spec's."
   [ast interface gen-map]
   (let [{:keys [interface.ast.interface/name]} interface
         all-fields (ast&interface->ast-fields ast interface)
-        interface-macro (let [{req-fields true
-                               opt-fields false
-                               :or {req-fields []
-                                    ; TODO Try without contains? Use nil instead of false for opt-fields
-                                    ; TODO In the middle of fields-that-need-specs to ignore
-                                    opt-fields []}} (group-by #(contains? % :interface.ast.field/required) all-fields)
-                              {gen-fields true} (group-by :gen/should-generate all-fields)]
-                          (if-let [custom-generator-factory (get gen-map name)]
-                            `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields gen-map custom-generator-factory))
-                            (if (seq gen-fields)
-                              `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields {} (apply ensure-keys-gen (map :db/ident gen-fields))))
-                              `(s/def ~name ~(self&inherited-interface-gen ast name req-fields opt-fields gen-map)))))]
+        interface-spec-def (let [{req-fields true
+                                  opt-fields nil
+                                  :or {req-fields []
+                                       opt-fields []}} (group-by :interface.ast.field/required all-fields)
+                                 {gen-fields true :or {gen-fields []}} (group-by :gen/should-generate all-fields)]
+                             (if-let [custom-generator-factory (get gen-map name)]
+                               `(s/def ~name ~(interface->clojure-spec-macros ast name req-fields opt-fields gen-map custom-generator-factory))
+                               (if (seq gen-fields)
+                                 `(s/def ~name ~(interface->clojure-spec-macros ast name req-fields opt-fields gen-map (apply ensure-keys-gen (map :db/ident gen-fields))))
+                                 `(s/def ~name ~(interface->clojure-spec-macros ast name req-fields opt-fields gen-map)))))]
     (->> all-fields
          (filter #(not= (:db/ident %) :datomic-spec/interfaces))
          (reduce (fn [macros {:keys [db/ident] :as field}]
                    (merge macros
                           {ident (field->clojure-spec-macro field (get gen-map ident))}))
-                 {name interface-macro}))))
-(stest/instrument `interface->clojure-spec-macros)
+                 {name interface-spec-def}))))
+(stest/instrument `interface->clojure-spec-defs)
 
 (s/fdef deps-graph-for-ast
         :args (s/cat :ast :interface/ast)
@@ -626,8 +642,8 @@
   the clojure.spec macros that we can expand and evaluate later."
   [{:keys [interface.ast/interfaces] :as ast} gen-map]
   (reduce
-    (fn [macros interface] (merge macros (interface->clojure-spec-macros ast interface gen-map)))
-    {}
+    (fn [macros interface] (merge macros (interface->clojure-spec-defs ast interface gen-map)))
+    {:datomic-spec/interfaces `(s/def :datomic-spec/interfaces (s/coll-of keyword? :kind set?))}
     (vals interfaces)))
 (stest/instrument `ast->clojure-spec-macros)
 
@@ -650,5 +666,6 @@
   [ast]
   (register-generative-specs-for-ast! ast {}))
 (s/fdef register-specs-for-ast!
-        :args (s/cat :ast :interface/ast))
+        :args (s/cat :ast :interface/ast)
+        :ret any?)
 (stest/instrument `register-specs-for-ast!)

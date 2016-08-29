@@ -468,13 +468,15 @@
           (let [generator (s/gen :interface/entity-with-ref)
                 entity (gen/generate generator)]
             (is (contains? entity :entity/pet))
-            (is (string? (get-in entity [:entity/pet :pet/name])))))
+            (is (string? (get-in entity [:entity/pet :pet/name])))
+            (is (= #{:interface/pet} (get-in entity [:entity/pet :datomic-spec/interfaces])))))
         (testing "generating data with overriding generators"
           (let [generators {:pet/name #(s/gen #{"Banana" "Spotty"})}]
             (register-generative-specs-for-ast! ast generators)
             (let [generator (s/gen :interface/entity-with-ref)
                   entity (gen/generate generator)]
-              (is (contains? #{"Banana" "Spotty"} (get-in entity [:entity/pet :pet/name]))))))))
+              (is (contains? #{"Banana" "Spotty"} (get-in entity [:entity/pet :pet/name])))
+              (is (= #{:interface/pet} (get-in entity [:entity/pet :datomic-spec/interfaces]))))))))
     (testing "with an attribute that is a collection"
       (testing "of strings"
         (let [spec {:interface.def/name :interface/entity-with-string-collection
@@ -491,7 +493,13 @@
                                                             :db/valueType :db.type/string
                                                             :interface.ast.field/type :string
                                                             :db/cardinality :db.cardinality/many
-                                                            :db/doc "A collection of strings"}}
+                                                            :db/doc "A collection of strings"}
+                                                 :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                           :db/valueType :db.type/ref
+                                                                           :interface.ast.field/type :enum
+                                                                           :interface.ast.field/possible-enum-vals #{:interface/entity-with-string-collection}
+                                                                           :interface.ast.field/required true
+                                                                           :db/cardinality :db.cardinality/many}}
                                                 :interface.ast.interface/inherits #{}
                                                 :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/entity-with-string-collection]]}}
                       :interface.ast/enum-map {:interface/entity-with-string-collection {:db/ident :interface/entity-with-string-collection}}})))))))
@@ -582,7 +590,13 @@
                                                                :db/valueType :db.type/string
                                                                :interface.ast.field/type :string
                                                                :db/cardinality :db.cardinality/one
-                                                               :db/doc "Refable attr"}}
+                                                               :db/doc "Refable attr"}
+                                          :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                    :db/valueType :db.type/ref
+                                                                    :interface.ast.field/type :enum
+                                                                    :interface.ast.field/possible-enum-vals #{:interface/refable}
+                                                                    :interface.ast.field/required true
+                                                                    :db/cardinality :db.cardinality/many}}
                                        :interface.ast.interface/inherits #{}
                                        :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/refable]]}}
                   :interface.ast/enum-map {:interface/refable {:db/ident :interface/refable}}}))
@@ -611,7 +625,13 @@
                                        {:person/name {:db/ident :person/name
                                                       :db/valueType :db.type/string
                                                       :interface.ast.field/type :string
-                                                      :db/cardinality :db.cardinality/one}}
+                                                      :db/cardinality :db.cardinality/one}
+                                        :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                  :db/valueType :db.type/ref
+                                                                  :interface.ast.field/type :enum
+                                                                  :interface.ast.field/possible-enum-vals #{:interface/child}
+                                                                  :interface.ast.field/required true
+                                                                  :db/cardinality :db.cardinality/many}}
                                        :interface.ast.interface/inherits #{:interface/mother :interface/father}
                                        :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/child]]}
                      :interface/mother {:interface.ast.interface/name :interface/mother
@@ -620,7 +640,13 @@
                                                               :db/valueType :db.type/ref
                                                               :interface.ast.field/type :enum
                                                               :interface.ast.field/possible-enum-vals #{:happy :sad}
-                                                              :db/cardinality :db.cardinality/one}}
+                                                              :db/cardinality :db.cardinality/one}
+                                         :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                   :db/valueType :db.type/ref
+                                                                   :interface.ast.field/type :enum
+                                                                   :interface.ast.field/possible-enum-vals #{:interface/mother}
+                                                                   :interface.ast.field/required true
+                                                                   :db/cardinality :db.cardinality/many}}
                                         :interface.ast.interface/inherits #{}
                                         :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/mother]]}
                      :interface/father {:interface.ast.interface/name :interface/father
@@ -628,7 +654,13 @@
                                         {:person/bald? {:db/ident :person/bald?
                                                         :db/valueType :db.type/boolean
                                                         :interface.ast.field/type :boolean
-                                                        :db/cardinality :db.cardinality/one}}
+                                                        :db/cardinality :db.cardinality/one}
+                                         :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                   :db/valueType :db.type/ref
+                                                                   :interface.ast.field/type :enum
+                                                                   :interface.ast.field/possible-enum-vals #{:interface/father}
+                                                                   :interface.ast.field/required true
+                                                                   :db/cardinality :db.cardinality/many}}
                                         :interface.ast.interface/inherits #{}
                                         :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/father]]}}
                     :interface.ast/enum-map {:happy {:db/ident :happy}
@@ -640,6 +672,7 @@
           (let [ast (semantic-spec-coll->semantic-ast specs)]
             (register-specs-for-ast! ast)
             (is (s/valid? :interface/child {:db/id (d/tempid :db.part/user)
+                                            :datomic-spec/interfaces #{:interface/child}
                                             :person/name "Brian"
                                             :person/personality :happy
                                             :person/bald? false}))
@@ -648,10 +681,17 @@
             ;                                                  :person/personality :happy})]
             ;  (is (= #{:db/id :person/personality} (set (keys conformed-mom)))))
             ))
+        (testing "schemas generate entities with correct :datomic-spec/interfaces"
+          (let [child (gen/generate (s/gen :interface/child))
+                mother (gen/generate (s/gen :interface/mother))
+                father (gen/generate (s/gen :interface/father))]
+            (is (= (:datomic-spec/interfaces child) #{:interface/child :interface/mother :interface/father}))
+            (is (= (:datomic-spec/interfaces mother) #{:interface/mother}))
+            (is (= (:datomic-spec/interfaces father) #{:interface/father}))))
         (testing "child schemas can generate parent keys"
           (let [generator (s/gen :interface/child)
                 data (gen/sample generator 100)]
-            (is (= #{:db/id :person/name :person/personality :person/bald?} (set (mapcat keys data))))))
+            (is (= #{:db/id :person/name :person/personality :person/bald? :datomic-spec/interfaces} (set (mapcat keys data))))))
         ))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
@@ -661,8 +701,16 @@
            (prop/for-all [entity (s/gen :interface/mother)]
                          (empty? (clojure.set/difference
                                    (set (keys entity))
-                                   #{:db/id :person/personality}))))
+                                   #{:db/id :person/personality :datomic-spec/interfaces}))))
   (defspec child-should-be-valid-according-to-parent-specs
            100
            (prop/for-all [entity (s/gen :interface/child)]
-                         (s/valid? :interface/mother entity))))
+                         (s/valid? :interface/child entity)
+                         (s/valid? :interface/mother entity)
+                         (s/valid? :interface/father entity)))
+  (defspec child-should-self-label-itself-with-all-inherited-interfaces
+           100
+           (prop/for-all [entity (s/gen :interface/child)]
+                         (= (:datomic-spec/interfaces entity)
+                            #{:interface/child :interface/mother :interface/father})))
+  )
