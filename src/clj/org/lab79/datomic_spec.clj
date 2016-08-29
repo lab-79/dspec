@@ -475,11 +475,22 @@
   "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   ([ast interface-name req-fields opt-fields gen-map]
     (let [all-inherited (all-inherited-interface-names ast interface-name)
+          all-my-interfaces (conj all-inherited interface-name)
           inherited-custom-generators? (seq (keep gen-map all-inherited))
           identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
-          spec `(s/keys
-                  :req ~(conj (mapv :db/ident req-fields) :db/id)
-                  :opt ~(mapv :db/ident opt-fields))]
+
+          ; We use distinct here because we could have multiple :datomic-spec/interfaces attributes that we inherit
+          req-keys (conj (vec (distinct (map :db/ident req-fields))) :db/id)
+          opt-keys (mapv :db/ident opt-fields)
+          base-spec `(s/keys :req ~req-keys, :opt ~opt-keys)
+          ; We remove :datomic-spec/interfaces, so we don't un-necessarily generate them randomly, before we
+          ; over-write them with our own deterministic set of interface keywords.
+          base-gen-spec `(s/keys
+                           :req ~(vec (remove #(= % :datomic-spec/interfaces) req-keys))
+                           :opt ~opt-keys)
+          spec (if (and identify-via-datomic-spec-interfaces? (seq all-inherited))
+                 `(s/and ~base-spec #(clojure.set/subset? ~all-my-interfaces (:datomic-spec/interfaces %)))
+                 base-spec)]
       (if inherited-custom-generators?
         `(s/with-gen ~spec
                      #(gen/fmap
@@ -494,34 +505,43 @@
                        #(gen/fmap
                          (comp (partial apply merge)
                                (fn [~'xs] (conj ~'xs {:datomic-spec/interfaces ~(conj all-inherited interface-name)})))
-                         (clojure.spec.gen/tuple (s/gen ~spec))))))))
+                         (clojure.spec.gen/tuple (s/gen ~base-gen-spec))))))))
 
   ([ast interface-name req-fields opt-fields gen-map custom-generator-factory]
    (let [all-inherited (all-inherited-interface-names ast interface-name)
+         all-my-interfaces (conj all-inherited interface-name)
          inherited-custom-generators? (seq (keep gen-map all-inherited))
          identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
-         spec `(s/keys
-                 :req ~(conj (mapv :db/ident req-fields) :db/id)
-                 :opt ~(mapv :db/ident opt-fields))]
+
+         ; We use distinct here because we could have multiple :datomic-spec/interfaces attributes that we inherit
+         req-keys (conj (vec (distinct (map :db/ident req-fields))) :db/id)
+         opt-keys (mapv :db/ident opt-fields)
+         base-spec `(s/keys :req ~req-keys, :opt ~opt-keys)
+         ; We remove :datomic-spec/interfaces, so we don't un-necessarily generate them randomly, before we
+         ; over-write them with our own deterministic set of interface keywords.
+         base-gen-spec `(s/keys
+                          :req ~(vec (remove #(= % :datomic-spec/interfaces) req-keys))
+                          :opt ~opt-keys)
+         spec (if (and identify-via-datomic-spec-interfaces? (seq all-inherited))
+                `(s/and ~base-spec #(clojure.set/subset? ~all-my-interfaces (:datomic-spec/interfaces %)))
+                base-spec)]
      (if inherited-custom-generators?
        `(s/with-gen ~spec
                     #(gen/fmap
-                      (comp (partial apply merge)
-                            (fn [~'xs] (conj ~'xs (if identify-via-datomic-spec-interfaces?
-                                                    {:datomic-spec/interfaces (conj all-inherited interface-name)}
-                                                    {}))))
+                      (if identify-via-datomic-spec-interfaces?
+                        (fn [~'hashes-to-combine]
+                          (apply merge (conj ~'hashes-to-combine {:datomic-spec/interfaces ~all-my-interfaces})))
+                        (partial apply merge))
                       ~(cons 'clojure.spec.gen/tuple
-                             (cons (custom-generator-factory spec)
+                             (cons (custom-generator-factory base-gen-spec)
                                    (map (fn [x] `(s/gen ~x)) all-inherited)))))
        `(s/with-gen ~spec
                     ~(if-not identify-via-datomic-spec-interfaces?
                        `(fn []
                           ~(custom-generator-factory spec))
                       `#(gen/fmap
-                         ~(if identify-via-datomic-spec-interfaces?
-                            `(fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~(conj all-inherited interface-name)}))
-                            `identity)
-                         ~(custom-generator-factory spec))))))))
+                         (fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~all-my-interfaces}))
+                         ~(custom-generator-factory base-gen-spec))))))))
 (stest/instrument `interface->clojure-spec-macros)
 
 (def ^:private NATIVE-TYPES

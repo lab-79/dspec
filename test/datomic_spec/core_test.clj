@@ -671,8 +671,14 @@
         (testing "generating clojure.spec definitions"
           (let [ast (semantic-spec-coll->semantic-ast specs)]
             (register-specs-for-ast! ast)
+            (is (false?
+                  (s/valid? :interface/child {:db/id (d/tempid :db.part/user)
+                                              :datomic-spec/interfaces #{:interface/child}
+                                              :person/name "Brian"
+                                              :person/personality :happy
+                                              :person/bald? false})))
             (is (s/valid? :interface/child {:db/id (d/tempid :db.part/user)
-                                            :datomic-spec/interfaces #{:interface/child}
+                                            :datomic-spec/interfaces #{:interface/child :interface/father :interface/mother}
                                             :person/name "Brian"
                                             :person/personality :happy
                                             :person/bald? false}))
