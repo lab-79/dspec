@@ -1,13 +1,12 @@
 (ns org.lab79.datomic-spec
   (:require [datomic.api :as d]
-            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen]]
+            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]
             [clojure.core.match :refer [match]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [clojure.spec.test :as stest]
             [clojure.test :refer [function?]]
             [com.stuartsierra.dependency :as ssdep]
-            [org.lab79.datomic-spec.gen :refer [fn->gen]]
             [com.rpl.specter :as sp]
             [com.rpl.specter.macros
              :refer [paramsfn defprotocolpath defnav extend-protocolpath
