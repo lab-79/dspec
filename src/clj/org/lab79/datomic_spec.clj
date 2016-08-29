@@ -14,8 +14,7 @@
                      nav declarepath providepath select select-one select-one!
                      select-first transform setval replace-in defnavconstructor
                      select-any selected-any? collected? traverse
-                     multi-transform]]
-            [clojure.pprint :refer [pprint]])
+                     multi-transform]])
   (:import (java.util Date)
            (datomic.db DbId)))
 
