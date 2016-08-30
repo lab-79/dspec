@@ -3,15 +3,9 @@
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [clojure.spec.test :as stest]
-            [clojure.test :refer [function?]]
             [com.stuartsierra.dependency :as ssdep]
-            [com.rpl.specter :as sp]
-            [com.rpl.specter.macros
-             :refer [paramsfn defprotocolpath defnav extend-protocolpath
-                     nav declarepath providepath select select-one select-one!
-                     select-first transform setval replace-in defnavconstructor
-                     select-any selected-any? collected? traverse
-                     multi-transform]]
+            [com.rpl.specter :refer [MAP-VALS]]
+            [com.rpl.specter.macros :refer [select]]
             [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]
             )
   (:import (java.util Date)))
@@ -337,8 +331,8 @@
 
 (defn validate-semantic-ast
   [ast]
-  (let [enum-vals (set (select [:interface.ast/enum-map sp/MAP-VALS :db/ident] ast))
-        interface-names (set (select [:interface.ast/interfaces sp/MAP-VALS :interface.ast.interface/name] ast))
+  (let [enum-vals (set (select [:interface.ast/enum-map MAP-VALS :db/ident] ast))
+        interface-names (set (select [:interface.ast/interfaces MAP-VALS :interface.ast.interface/name] ast))
         primitives #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :bytes}
         valid-types (clojure.set/union primitives interface-names #{:enum})]
     (doseq [[interface-name {:keys [interface.ast.interface/fields]}] (:interface.ast/interfaces ast)]
@@ -395,7 +389,7 @@
   the field."
   ([type]
    {:pre [(s/valid? :interface.ast.field/type type)]
-    :post [(s/valid? (s/or :fn function? :kw keyword?) %)]
+    :post [(s/valid? (s/or :fn fn? :kw keyword?) %)]
     }
    (case type
      :keyword keyword?
