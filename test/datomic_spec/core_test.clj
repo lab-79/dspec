@@ -618,6 +618,13 @@
           (is (thrown-with-msg? clojure.lang.ExceptionInfo
                                 #"Invalid attribute type :interface/some-undefined-type"
                                 (semantic-spec-coll->semantic-ast specs))))))
+    (testing "invalid semantic interface definitions"
+      (testing "no :interface.def/identify-via"
+        (let [specs [{:interface.def/name :interface/non-identifiable-entity
+                      :interface.def/fields {}}]]
+          (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                                #"did not conform to spec:"
+                                (semantic-spec-coll->semantic-ast specs))))))
     (testing "with inheritance"
       (let [specs family-semantic-specs]
         (testing "semantic-spec-coll->semantic-ast"
