@@ -39,6 +39,7 @@
             (is (= #{{:db/ident :datomic-spec/interfaces
                       :db/valueType :db.type/ref
                       :db/cardinality :db.cardinality/many
+                      :db/index true
                       :db.install/_attribute :db.part/db}
                      {:db/ident :interface/eponym}}
                    (set (map #(dissoc % :db/id) datomic-schemas))))))))
@@ -500,6 +501,7 @@
                                                             :db/doc "A collection of strings"}
                                                  :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
                                                                            :db/valueType :db.type/ref
+                                                                           :db/index true
                                                                            :interface.ast.field/type :enum
                                                                            :interface.ast.field/possible-enum-vals #{:interface/entity-with-string-collection}
                                                                            :interface.ast.field/required true
@@ -597,6 +599,7 @@
                                                                :db/doc "Refable attr"}
                                           :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
                                                                     :db/valueType :db.type/ref
+                                                                    :db/index true
                                                                     :interface.ast.field/type :enum
                                                                     :interface.ast.field/possible-enum-vals #{:interface/refable}
                                                                     :interface.ast.field/required true
@@ -639,6 +642,7 @@
                                                       :db/cardinality :db.cardinality/one}
                                         :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
                                                                   :db/valueType :db.type/ref
+                                                                  :db/index true
                                                                   :interface.ast.field/type :enum
                                                                   :interface.ast.field/possible-enum-vals #{:interface/child}
                                                                   :interface.ast.field/required true
@@ -654,6 +658,7 @@
                                                               :db/cardinality :db.cardinality/one}
                                          :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
                                                                    :db/valueType :db.type/ref
+                                                                   :db/index true
                                                                    :interface.ast.field/type :enum
                                                                    :interface.ast.field/possible-enum-vals #{:interface/mother}
                                                                    :interface.ast.field/required true
@@ -668,6 +673,7 @@
                                                         :db/cardinality :db.cardinality/one}
                                          :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
                                                                    :db/valueType :db.type/ref
+                                                                   :db/index true
                                                                    :interface.ast.field/type :enum
                                                                    :interface.ast.field/possible-enum-vals #{:interface/father}
                                                                    :interface.ast.field/required true

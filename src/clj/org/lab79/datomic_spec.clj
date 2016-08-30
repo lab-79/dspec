@@ -267,6 +267,7 @@
         :fields (cond-> interface-fields
                         (= :datomic-spec/interfaces identify-via) (merge {:datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
                                                                                                     :db/valueType :db.type/ref
+                                                                                                    :db/index true
                                                                                                     :interface.ast.field/type :enum
                                                                                                     :interface.ast.field/possible-enum-vals #{name}
                                                                                                     :interface.ast.field/required true
