@@ -1,7 +1,5 @@
 (ns org.lab79.datomic-spec
-  (:require [datomic.api :as d]
-            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]
-            [clojure.core.match :refer [match]]
+  (:require [clojure.core.match :refer [match]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [clojure.spec.test :as stest]
@@ -13,9 +11,10 @@
                      nav declarepath providepath select select-one select-one!
                      select-first transform setval replace-in defnavconstructor
                      select-any selected-any? collected? traverse
-                     multi-transform]])
-  (:import (java.util Date)
-           (datomic.db DbId)))
+                     multi-transform]]
+            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]
+            )
+  (:import (java.util Date)))
 
 
 (s/fdef arity
@@ -29,11 +28,6 @@
 ; Datomic clojure.spec
 ;
 
-(def db-id? #(or (integer? %)
-                 (instance? datomic.db.DbId %)))
-
-(s/def :db/id
-  (s/with-gen db-id? (fn->gen #(d/tempid :db.part/user))))
 (s/def :db.install/_attribute #{:db.part/db})
 (s/def :db.install/_partition #{:db.part/db})
 
@@ -304,7 +298,7 @@
 (stest/instrument `only-db-keys)
 
 (def tempid-factory-spec (s/fspec :args (s/cat :partition keyword? :num (s/? number?))
-                                  :ret db-id?))
+                                  :ret any?))
 (s/fdef semantic-ast->datomic-schemas
         ; TODO Added this during oss
         :args (s/cat :ast :interface/ast
@@ -666,23 +660,32 @@
 
 (s/fdef register-generative-specs-for-ast!
         :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map))
+                     :gen-map :interface/gen-map
+                     :tempid-factory fn?
+                     ;:tempid-factory tempid-factory-spec
+                     :db-id? (s/fspec :args (s/cat :x any?)
+                                      :ret boolean?)))
 (defn register-generative-specs-for-ast!
   "Given an entire interface AST and some custom generators for some fields,
   register all clojure.spec specs that should be associated with the AST."
-  [ast gen-map]
+  [ast gen-map tempid-factory db-id?]
   (let [macros (ast->clojure-spec-macros ast gen-map)
         deps-graph (deps-graph-for-ast ast)]
+    (s/def :db/id
+      (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
     (doseq [spec-name (ssdep/topo-sort deps-graph)]
       (eval (macroexpand (macros spec-name))))))
 (stest/instrument `register-generative-specs-for-ast!)
 
 (s/fdef register-specs-for-ast!
-        :args (s/cat :ast :interface/ast)
-        :ret any?)
+        :args (s/cat :ast :interface/ast
+                     :tempid-factory fn?
+                     ;:tempid-factory tempid-factory-spec
+                     :db-id? (s/fspec :args (s/cat :x any?)
+                                      :ret boolean?)))
 (defn register-specs-for-ast!
   "Given an entire interface AST, register all clojure.spec specs that
   should be associated with the AST."
-  [ast]
-  (register-generative-specs-for-ast! ast {}))
+  [ast tempid-factory db-id?]
+  (register-generative-specs-for-ast! ast {} tempid-factory db-id?))
 (stest/instrument `register-specs-for-ast!)

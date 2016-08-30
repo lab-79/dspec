@@ -7,7 +7,11 @@
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [datomic.api :as d]
-            ))
+            )
+  (:import (datomic.db DbId)))
+
+(def db-id? #(or (integer? %)
+                 (instance? datomic.db.DbId %)))
 
 
 (def family-semantic-specs
@@ -72,7 +76,7 @@
                                               :interface.ast.interface/identify-via ['[?e :obj/keyword-attr]]}}
                     :interface.ast/enum-map {}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/keyword-attr :ok))
               (is (= ::s/invalid (s/conform :obj/keyword-attr "ok"))))
@@ -127,7 +131,7 @@
                                               :interface.ast.interface/identify-via ['[?e :obj/boolean-attr]]}}
                     :interface.ast/enum-map {}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/boolean-attr true))
               (is (= ::s/invalid (s/conform :obj/boolean-attr "true"))))
@@ -253,7 +257,7 @@
                                               :interface.ast.interface/identify-via ['[?e :obj/instant-attr]]}}
                     :interface.ast/enum-map {}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/instant-attr #inst "2014-05-19T19:12:37.925-00:00"))
               (is (= ::s/invalid (s/conform :obj/instant-attr "not a date"))))
@@ -282,7 +286,7 @@
                                               :interface.ast.interface/identify-via ['[?e :obj/id]]}}
                     :interface.ast/enum-map {}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/id #uuid "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))
               (is (= ::s/invalid (s/conform :obj/id "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))))
@@ -310,7 +314,7 @@
                                               :interface.ast.interface/identify-via ['[?e :obj/uri-attr]]}}
                     :interface.ast/enum-map {}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/uri-attr (java.net.URI/create "http://google.com/")))
               (is (= ::s/invalid (s/conform :obj/uri-attr "google.com")))))))
@@ -334,7 +338,7 @@
                                               :interface.ast.interface/identify-via ['[?e :obj/bytes-attr]]}}
                     :interface.ast/enum-map {}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/bytes-attr (bytes (byte-array (map (comp byte int) "ascii")))))
               (is (= ::s/invalid (s/conform :obj/bytes-attr "xyz"))))))))
@@ -362,7 +366,7 @@
                     :interface.ast/enum-map {:some.enum/a {:db/ident :some.enum/a}
                                              :some.enum/b {:db/ident :some.enum/b}}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/enum-attr :some.enum/a))
               (is (s/valid? :obj/enum-attr :some.enum/b))
@@ -395,7 +399,7 @@
                                              :some.doc.enum/b {:db/ident :some.doc.enum/b
                                                                :db/doc "Enum B"}}})))
           (testing "generating clojure.spec definitions"
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/a))
               (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/b))
@@ -464,7 +468,7 @@
                       :interface.def/identify-via :datomic-spec/interfaces}
             ast (semantic-spec-coll->semantic-ast [spec pet-spec])]
         (testing "generating data with default spec generators"
-          (register-specs-for-ast! ast)
+          (register-specs-for-ast! ast d/tempid db-id?)
           (let [generator (s/gen :interface/entity-with-ref)
                 entity (gen/generate generator)]
             (is (contains? entity :entity/pet))
@@ -472,7 +476,7 @@
             (is (= #{:interface/pet} (get-in entity [:entity/pet :datomic-spec/interfaces])))))
         (testing "generating data with overriding generators"
           (let [generators {:pet/name #(s/gen #{"Banana" "Spotty"})}]
-            (register-generative-specs-for-ast! ast generators)
+            (register-generative-specs-for-ast! ast generators d/tempid db-id?)
             (let [generator (s/gen :interface/entity-with-ref)
                   entity (gen/generate generator)]
               (is (contains? #{"Banana" "Spotty"} (get-in entity [:entity/pet :pet/name])))
@@ -670,7 +674,7 @@
                                              :interface/father {:db/ident :interface/father}}}))))
         (testing "generating clojure.spec definitions"
           (let [ast (semantic-spec-coll->semantic-ast specs)]
-            (register-specs-for-ast! ast)
+            (register-specs-for-ast! ast d/tempid db-id?)
             (is (false?
                   (s/valid? :interface/child {:db/id (d/tempid :db.part/user)
                                               :datomic-spec/interfaces #{:interface/child}
@@ -701,7 +705,7 @@
         ))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
-  (register-specs-for-ast! ast)
+  (register-specs-for-ast! ast d/tempid db-id?)
   (defspec parent-schemas-dont-generate-child-keys
            100
            (prop/for-all [entity (s/gen :interface/mother)]
