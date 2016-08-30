@@ -442,6 +442,7 @@ generate test or sample data.
 (require '[faker.name :as fname])
 (require '[clojure.spec.gen :as gen])
 (require '[clojure.spec :as s])
+(import '[datomic.db DbId])
 
 (def edn-specs
     [{:interface.def/name :interface/person
@@ -465,6 +466,9 @@ generate test or sample data.
                            ; with at least :key1 and :key2
    :person/languages #(s/gen #{"English" "Spanish"})})
 
+(def db-id? #(or (integer? %)
+                 (instance? datomic.db.DbId %)))
+
 (-> edn-specs
 
     ; Convert the semantic specs to the intermediate semantic ast
@@ -474,7 +478,7 @@ generate test or sample data.
     ; Register `clojure.spec` specs based off the semantic ast
     ; and based off of custom generators to over-write particular
     ; `clojure.spec` keys.
-    (register-generative-specs-for-ast! generators))
+    (register-generative-specs-for-ast! generators datomic.api/tempid db-id?))
 
 ; Now that the specs are loaded into our Clojure environment, we
 ; can generated sample data based off of them.
