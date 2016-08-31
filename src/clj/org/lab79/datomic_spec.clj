@@ -45,18 +45,27 @@
 ;
 
 (s/def :interface/def
-  (s/keys :req [:interface.def/name :interface.def/fields :interface.def/identify-via]
-          :opt [:interface.def/inherits]))
+  (s/and #(contains? % :interface.def/name)
+         #(contains? % :interface.def/fields)
+         #(contains? % :interface.def/identify-via)
+         #(or (and (= (:interface.def/identify-via %) :datomic-spec/interfaces)
+                    (contains? % :interface.def/identifying-enum-part))
+              (not= (:interface.def/identify-via %) :datomic-spec/interfaces))))
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/coll-of :interface.def/field :kind set?))
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
 (s/def :interface.def/field
   (s/cat :field-tags (s/+ :interface.def.field/trait)))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
-(s/def :datalog/clause (s/or :datalog/pair (s/tuple #{'?e} keyword? any?)
-                             :datalog/triplet (s/tuple #{'?e} keyword?)))
+(def datalog-pair-spec (s/tuple #{'?e} keyword?))
+(def datalog-triplet-spec (s/tuple #{'?e} keyword? any?))
+(s/def :datalog/clause (s/or :datalog/pair datalog-pair-spec
+                             :datalog/triplet datalog-triplet-spec))
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
                                          :identify-via/datalog-clause (s/coll-of :datalog/clause :kind vector?)))
+(s/def :db/part (s/with-gen (s/and keyword? #(= (namespace %) "db.part"))
+                            (gen/fmap #(keyword "db.part" %) (gen/string-alphanumeric))))
+(s/def :interface.def/identifying-enum-part :db/part)
 (s/def :interface.def.field/trait
   (s/alt :doc           :db/doc
          :unique        :db/unique
@@ -103,17 +112,18 @@
   (s/map-of keyword? :interface.ast/interface))
 
 (s/def :interface.ast/interface
-  (s/keys :req [:interface.ast.interface/name :interface.ast.interface/fields]
+  (s/keys :req [:interface.ast.interface/name :interface.ast.interface/fields :interface.ast.interface/identify-via]
           :opt [:interface.ast.interface/inherits]))
 (s/def :interface.ast.interface/name keyword?)
 (s/def :interface.ast.interface/fields (s/map-of keyword? :interface.ast/field))
 (s/def :interface.ast.interface/inherits (s/coll-of keyword? :kind set?))
+(s/def :interface.ast.interface/identify-via (s/coll-of :datalog/clause :kind vector?))
 
 (s/def :interface.ast/enum-map
   (s/map-of keyword? :interface.ast/enum))
 
 (s/def :interface.ast/enum (s/keys :req [:db/ident]
-                                   :opt [:db/doc]))
+                                   :opt [:db/doc :db/part]))
 
 (s/def :interface.ast/field
   (s/keys :req [:db/ident
@@ -249,7 +259,7 @@
   "Converts a user-readability-optimized semantic schema spec into a AST that can be used to generate Datomic
   schemas, generate test data, etc."
   [spec]
-  (let [{:interface.def/keys [name fields inherits identify-via]} spec
+  (let [{:interface.def/keys [name fields inherits identify-via identifying-enum-part]} spec
         {:keys [interface-fields enum-map]} (reduce
                                               (fn [parsed [field-name field-spec]]
                                                 (let [{:interface.ast/keys [enum-map field]} (parse-field-def field-spec field-name)]
@@ -263,34 +273,38 @@
                         identify-via)]
     {:interface.ast/interfaces
       {name #:interface.ast.interface
-       {:name name
-        :fields (cond-> interface-fields
-                        (= :datomic-spec/interfaces identify-via) (merge {:datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
-                                                                                                    :db/valueType :db.type/ref
-                                                                                                    :db/index true
-                                                                                                    :interface.ast.field/type :enum
-                                                                                                    :interface.ast.field/possible-enum-vals #{name}
-                                                                                                    :interface.ast.field/required true
-                                                                                                    :db/cardinality :db.cardinality/many}}))
-        :inherits (set inherits)
-        :identify-via identify-via'}}
+                {:name name
+                 :fields (cond->
+                           interface-fields
+                           (= :datomic-spec/interfaces identify-via) (merge {:datomic-spec/interfaces
+                                                                             {:db/ident :datomic-spec/interfaces
+                                                                              :db/valueType :db.type/ref
+                                                                              :db/index true
+                                                                              :interface.ast.field/type :enum
+                                                                              :interface.ast.field/possible-enum-vals #{name}
+                                                                              :interface.ast.field/required true
+                                                                              :db/cardinality :db.cardinality/many}}))
+                 :inherits (set inherits)
+                 :identify-via identify-via'}}
      :interface.ast/enum-map (cond-> enum-map
-                                     (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name}}))}))
+                                     (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name
+                                                                                             :db/part identifying-enum-part}}))}))
 (stest/instrument `semantic-spec->semantic-ast)
 
-(s/fdef only-db-keys
+(s/fdef only-datomic-keys
         :args (s/cat :map (s/map-of keyword? any?))
         :ret (s/map-of keyword? any?))
-(defn- only-db-keys
+(defn- only-datomic-keys
   [m]
   (into {} (filter
              #(let [key (first %)
                     kw (if (keyword? key)
                          key
                          (:k key))]
-               (re-matches #"^db" (namespace kw)))
+               (and (re-matches #"^db" (namespace kw))
+                    (not= kw :db/part)))
              m)))
-(stest/instrument `only-db-keys)
+(stest/instrument `only-datomic-keys)
 
 (def tempid-factory-spec (s/fspec :args (s/cat :partition keyword? :num (s/? number?))
                                   :ret any?))
@@ -305,14 +319,14 @@
   [ast tempid-factory]
   (let [enum-datoms (for [[_ enum] (:interface.ast/enum-map ast)]
                       (-> enum
-                          only-db-keys
+                          only-datomic-keys
                           ; TODO Take into account partition for the enums
-                          (assoc :db/id (tempid-factory :db.part/user))))
+                          (assoc :db/id (tempid-factory (get enum :db/part :db.part/user)))))
         field-datoms (flatten
                        (for [[_ intfc] (:interface.ast/interfaces ast)]
                          (for [[_ field] (:interface.ast.interface/fields intfc)]
                            (-> field
-                               only-db-keys
+                               only-datomic-keys
                                (assoc :db/id (tempid-factory :db.part/db)
                                       :db.install/_attribute :db.part/db)))))]
     (into [] (concat enum-datoms field-datoms))))
