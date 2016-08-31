@@ -6,11 +6,10 @@
   :source-paths ["src/clj"]
   :test-paths ["test"]
   :dependencies [
-                 [org.clojure/clojure "1.9.0-alpha10"]
+                 [org.clojure/clojure "1.9.0-alpha11"]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [com.rpl/specter "0.12.0"]
                  [com.stuartsierra/dependency "0.2.0"]
-                 [com.datomic/datomic-free "0.9.5390"]
                  ]
   :profiles {:dev {:dependencies
                     [
@@ -18,4 +17,5 @@
                      [bolth "0.1.0"]
                      [org.clojure/tools.nrepl "0.2.11"]
                      [org.clojure/tools.namespace "0.2.11"]
+                     [com.datomic/datomic-free "0.9.5390"]
                      ]}})
