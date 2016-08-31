@@ -306,10 +306,10 @@
              m)))
 (stest/instrument `only-datomic-keys)
 
-(def tempid-factory-spec (s/fspec :args (s/cat :partition keyword? :num (s/? number?))
+(def tempid-factory-spec (s/fspec :args (s/alt :binary (s/cat :partition keyword? :num integer?)
+                                               :unary (s/cat :partition keyword?))
                                   :ret any?))
 (s/fdef semantic-ast->datomic-schemas
-        ; TODO Added this during oss
         :args (s/cat :ast :interface/ast
                      :tempid-factory tempid-factory-spec)
         :ret (s/coll-of :datomic/schema :kind vector?))
