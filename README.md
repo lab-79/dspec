@@ -72,7 +72,7 @@ In `datomic-spec`, our semantic definitions are defined as data.
                              :required]
       :taggable/tags [[:string] "Tags for an entity"]
       :user/registeredAt [:instant "When a user registered"]}
-   :interface.def/identify-via :user/username})
+   :interface.def/identify-via ['[?e :user/username]]})
 ```
 
 This defines a kind of object named `:interface/user` that has the following
@@ -125,7 +125,9 @@ An attribute can also take on an enumerated set of values.
    {:person/gender ["A person's gender"
                     :enum {:person.gender/male "Male"
                            :person.gender/female  "Female"
-                           :person.gender/other "Other"}]}}
+                           :person.gender/other "Other"}]}
+ :interface.def/identify-via :datomic-spec/interfaces
+ :interface.def/identifying-enum-part :db.part/user}
 
 ; or
 {:interface.def/name :person
@@ -133,7 +135,9 @@ An attribute can also take on an enumerated set of values.
    {:person/gender [:enum #{:person.gender/male
                             :person.gender/female
                             :person.gender/other]
-                            "A person's gender"}}}
+                            "A person's gender"}}
+ :interface.def/identify-via :datomic-spec/interfaces
+ :interface.def/identifying-enum-part :db.part/user}
 ```
 
 The type is specified by the keyword `:enum` immediately followed by either a
@@ -150,7 +154,8 @@ the `:required` flag to the field definition:
 {:interface.def/name :interface/user
  :interface.def/fields
    {:user/username [:string "A user's username" :required]
-    :user/password [:string "A user's hashed password" :required]}}
+    :user/password [:string "A user's hashed password" :required]}
+ :interface.def/identify-via ['[?e :user/username]]}
 ```
 
 The field flags that come pre-packaged with `datomic-spec` include:
@@ -193,8 +198,9 @@ Here is how we can represent that succinctly:
   :interface.def/fields
     {:person.id/ssn [:string "A person's ssn number"
                              :db.unique/value]
-     :person/name [[:person/name] "A person's names"]}}
+     :person/name [[:person/name] "A person's names"]}
      ; The 2nd :person/name refers to the entity type defined below (see [XYZ])
+  :interface.def/identify-via ['[?e :person/name]]}
 
 
  ; Notice how we can define more than one schema type in a single edn map.
@@ -204,7 +210,8 @@ Here is how we can represent that succinctly:
  {:interface.def/name :person/name
   :interface.def/fields
     {:person.name/given [:string "A given part of a person's name"]
-     :person.name/family [:string "The family part of a person's name"]}}]
+     :person.name/family [:string "The family part of a person's name"]}
+  :interface.def/identify-via ['[?e :person.name/given]]}]
 ```
 
 The above interface definitions can generate the following Datomic schema:
@@ -255,17 +262,23 @@ a patient and a practitioner are both persons as well.
 ```clojure
 [{:interface.def/name :interface/person
   :interface.def/fields
-    {:person/name [:string]}}
+    {:person/name [:string]}
+  :interface.def/identify-via :datomic-spec/interfaces
+  :interface.def/identifying-enum-part :db.part/user}
 
  {:interface.def/name :interface/patient
   :interface.def/inherits [:interface/person]
   :interface.def/fields
-    {:patient/physicians [[:interface/physician] "A patient's physicians"]}}
+    {:patient/physicians [[:interface/physician] "A patient's physicians"]}
+  :interface.def/identify-via :datomic-spec/interfaces
+  :interface.def/identifying-enum-part :db.part/user}
 
  {:interface.def/name :interface/physician
   :interface.def/inherits #{:interface/person}
   :interface.def/fields
-    {:physician/specialties [[:string] "The physician's medical specialty or specialties."]}}]
+    {:physician/specialties [[:string] "The physician's medical specialty or specialties."]}
+  :interface.def/identify-via :datomic-spec/interfaces
+  :interface.def/identifying-enum-part :db.part/user}]
 ```
 
 The above specifies that the `:patient` entity type and the `:practitioner`
@@ -281,7 +294,8 @@ If we read an entity from a Datomic database, how can we determine what interfac
 it implements? We will only be able to rely on the attributes of an entity to figure
 this out. We can leverage attributes to identify entities in one of two ways.
 
-1. Via possession of an attribute (or attributes) that is (or are) always present
+1. Via Datomic datalog query clauses that specify a precise way to detect an entity
+   via possession of an attribute (or attributes) that is (or are) always present
    (i.e., `:required`).
 
     ```clojure
@@ -291,6 +305,10 @@ this out. We can leverage attributes to identify entities in one of two ways.
      :interface.def/identify-via ['[?e :automobile/license-plate]]}
     ```
 
+    Since we are using Datomic datalog syntax, we can use datalog itself to specify
+    more complex detection queries. In this example, an `:interface/automobile` is one
+    that has either a `:automobile/license-plate` or `:automobile/registration-id`:
+
     ```clojure
     {:interface.def/name :interface/automobile
      :interface.def/fields
@@ -299,6 +317,9 @@ this out. We can leverage attributes to identify entities in one of two ways.
      :interface.def/identify-via ['(or [?e :automobile/license-plate]
                                        [?e :automobile/registration-id])]}
     ```
+
+    And in this example, an `:interface/automobile` is one that has both
+    `:automobile/make` and `:automobile/model` attribute values:
 
     ```clojure
     {:interface.def/name :interface/automobile
@@ -310,18 +331,48 @@ this out. We can leverage attributes to identify entities in one of two ways.
     ```
 
 2. Via a special attribute `:interface.def/interfaces` that is a many-cardinality
-   attribute of enums where an enum value names an interface that the entity
+   attribute of Datomic enums where an enum value names an interface that the entity
    can be interpreted as.
 
     ```clojure
     {:interface.def/name :interface/automobile
      :interface.def/fields {:automobile/license-plate [:string]}
-     :interface.def/identify-via :datomic-spec/interfaces}
+     :interface.def/identify-via :datomic-spec/interfaces
+     :interface.def/identifying-enum-part :db.part/autos}
     ```
 
+    This comes in handy when we cannot rely on a particular value at an attribute for
+    identifying an entity. For example, we may want to specify someone as being an
+    `:interface/patient` in addition to an `:interface/person`, but the only attribute
+    the entity may have (besides `:db/id`) is `:person/name`. In this case, the only
+    way we could also identify a person as also being a patient is if we maintain an
+    attribute that the entity can use to self-label itself as an `:interface/patient`.
+    That special, reserved attribute is `:datomic-spec/interfaces`. It's Datomic schema
+    looks like:
+
+    ```clojure
+    {:db/id #db/id[:db.part/db]
+     :db/ident :datomic-spec/interfaces
+     :db/valueType :db.type/ref
+     :db/cardinality :db.cardinality/many
+     :db/index true
+     :db.install/_attribute :db.part/db}
+    ```
+
+    `:datomic-spec/interfaces` takes on a value that is a set of Datomic enums. For example,
+    in the `:interface/automobile` example, the Datomic schema will include:
+
+    ```clojure
+    {:db/id #db/id[:db.part/autos]
+     :db/ident :interface/automobile}
+    ```
+
+    The enum value is stored in the partition specified under the interface definition
+    key `:interface.def/identifying-enum-part`.
+
 We choose to force you to think about how you will enforce this so that you do not lose
-any information about an entity's interfaces after you write it to the database. An
-interface definition is not valid unless you specify `:interface.def/identify-via`.
+any information about an entity's intended interfaces after you write it to the database.
+An interface definition is not valid unless you specify `:interface.def/identify-via`.
 
 
 ### Converting Specs to Datomic Schemas
@@ -338,7 +389,8 @@ Consider the spec we first encountered:
                               :unique/identity ; can also be :unique/value
                               :required]
       :taggable/tags [[:string] "Tags for an entity"]
-      :user/registeredAt [:instant "When a user registered"]}})
+      :user/registeredAt [:instant "When a user registered"]}
+   :interface.def/identify-via ['[?e :user/username]]})
 ```
 
 It will also be able to generate the following Datomic attributes.
@@ -445,15 +497,17 @@ generate test or sample data.
 (import '[datomic.db DbId])
 
 (def edn-specs
-    [{:interface.def/name :interface/person
-      :interface.def/fields {:person.id/uuid [:uuid "A uuid we assign to identify the person" :db.unique/identity :required]
-                             :person.id/ssn [:string "A person's social security number" :db.unique/value]
-                             :person/name [[:interface.person/name] "A person's names"]
-                             :person/languages [[:string] "Languages a person can speak"]}}
+  [{:interface.def/name :interface/person
+    :interface.def/fields {:person.id/uuid [:uuid "A uuid we assign to identify the person" :db.unique/identity :required]
+                           :person.id/ssn [:string "A person's social security number" :db.unique/value]
+                           :person/name [[:interface.person/name] "A person's names"]
+                           :person/languages [[:string] "Languages a person can speak"]}
+    :interface.def/identify-via ['[?e :person.id/uuid]]}
 
-  {:interface.def/name :interface.person/name
-   :interface.def/fields {:person.name/given [:string "A given part of a person's name"]
-                          :person.name/family [:string "The family part of a person's name"]}}])
+   {:interface.def/name :interface.person/name
+    :interface.def/fields {:person.name/given [:string "A given part of a person's name"]
+                           :person.name/family [:string "The family part of a person's name"]}
+    :interface.def/identify-via ['[?e :person.name/given]]}])
 
 (def generators
   {:person.name/given (fn->gen fname/first-name)
@@ -568,16 +622,8 @@ Consider our semantic definition for a user:
             :taggable/tags [[:string] "Tags for an entity"]
             :registeredAt [:instant "When a user registered"]
             :taggable/tags [[:string] "Tags for an entity"]
-            :user/registeredAt [:instant "When a user registered"]}})
-
-(def user-spec
-  {:interface.def/name :interface/user
-  :interface.def/fields
-    {:user/username [:string "A user's username"
-                             :db.unique/identity ; can also be :unique/value
-                             :required]
-     :taggable/tags [[:string] "Tags for an entity"]
-     :user/registeredAt [:instant "When a user registered"]}})
+            :user/registeredAt [:instant "When a user registered"]}
+   :interface.def/identify-via ['[?e :user/username]]})
 ```
 
 Then, we can convert this to the intermediate AST.
@@ -612,8 +658,7 @@ This will generate the following AST.
                             :db/cardinality :db.cardinality/one
                             :db/doc "When a user registered"}}
      :interface.ast.interface/inherits #{}
-    }
-  }
+     :interface.ast.interface/identify-via ['[?e :user/username]]}}
  :interface.ast/enum-map {}}
 ```
 
@@ -626,15 +671,17 @@ Let's revisit another example.
      {:person/gender ["A person's gender"
                       :enum {:person.gender/male "Male"
                              :person.gender/female  "Female"
-                             :person.gender/other "Other"}]}})
+                             :person.gender/other "Other"}]}
+   :interface.def/identify-via :datomic-spec/interfaces
+   :interface.def/identifying-enum-part :db.part/user})
 ```
 
 This semantic spec generates the following AST.
 
 ```clojure
 {:interface.ast/interfaces
-  {:person
-    {:interface.ast.interface/name :person
+  {:interface/person
+    {:interface.ast.interface/name :interface/person
      :interface.ast.interface/fields
        {:person/gender {:db/ident :person/gender
                         :db/valueType :db.type/ref
@@ -642,13 +689,24 @@ This semantic spec generates the following AST.
                         :db/doc "A person's gender"
                         :semantic/type :enum
                         :interface.ast.field/enum-seq #{:gender/male
-                                                        :gender/female}}}
-     :interface.ast.interface/inherits #{}}}
+                                                        :gender/female}}
+
+        :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                  :db/valueType :db.type/ref
+                                  :db/index true
+                                  :interface.ast.field/type :enum
+                                  :interface.ast.field/possible-enum-vals #{:interface/refable}
+                                  :interface.ast.field/required true
+                                  :db/cardinality :db.cardinality/many}}
+     :interface.ast.interface/inherits #{}
+     :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/person]]}}
  :interface.ast/enum-map
    {:gender/male {:db/ident :gender/male
                   :db/doc "Male"}
     :gender/female {:db/ident :gender/female
-                    :db/doc "Female"}}}
+                    :db/doc "Female"}
+    :interface/person {:db/ident :interface/person
+                       :db/part :db.part/user}}}
 ```
 
 Here is how ref constraints are encapsulated in our AST:
@@ -670,7 +728,8 @@ Here is how ref constraints are encapsulated in our AST:
                        :db/cardinality :db.cardinality/many
                        :db/doc "A person's names"
                        :semantic/type :person/name}}
-      :interface.ast.interface/inherits #{}}
+      :interface.ast.interface/inherits #{}
+      :interface.ast.interface/identify-via ['[?e :person/name]]}
    :person/name
      {:interface.ast.interface/name :person/name
       :interface.ast.interface/fields
@@ -684,7 +743,8 @@ Here is how ref constraints are encapsulated in our AST:
                               :interface.ast.field/type :string
                               :db/cardinality :db.cardinality/one
                               :db/doc "The family part of a person's name"}
-      :interface.ast.interface/inherits #{}}
+      :interface.ast.interface/inherits #{}
+      :interface.ast.interface/identify-via ['[?e :person.name/given]]}
  :interface.ast/enum-map {}}}}
 ```
 
@@ -693,32 +753,41 @@ And here is how interface-based polymorphism is encapsulated in our AST:
 ```clojure
 {:interface.ast/interfaces
   {:interface/person
-    {:interface.ast.interface/name :interface/person
-     :interface.ast/interface/fields
-       {:person/name {:db/ident :person/name
-                      :db/valueType :db.type/string
-                      :interface.ast.field/type :string
-                      :db/cardinality :db.cardinality/one}}}
+     {:interface.ast.interface/name :interface/person
+      :interface.ast/interface/fields
+        {:person/name {:db/ident :person/name
+                       :db/valueType :db.type/string
+                       :interface.ast.field/type :string
+                       :db/cardinality :db.cardinality/one}}
+      :interface.ast.interface/identify-via ['[?e :person/name]]}
    :interface/patient
-    {:interface.ast.interface/name :interface/patient
-     :interface.ast.interface/fields
-       {:patient/physicians {:db/ident :patient/primary-care-providers
-                             :db/valueType :db.type/ref
-                             :interface.ast.field/type :practitioner
-                             :db/cardinality db.cardinality/many
-                             :db/doc "A patient's physicians"
-                             :semantic/type :interface/physician}}
-     :interface.ast.interface/inherits #{:interface/person}}
-    :interface/physician
-      {:interface.ast.interface/name :interface/physician
-       :interface.ast.interface/fields
-         {:physician/specialties {:db/ident :physician/specialties
-                                  :db/valueType :db.type/string
-                                  :interface.ast.field/type :string
-                                  :db/cardinality :db.cardinality/many
-                                  :db/doc "The physician's medical specialty or specialties"}}
-       :interface.ast.interface/inherits #{:interface/person}}
-  :interface.ast/enum-map {}}
+     {:interface.ast.interface/name :interface/patient
+      :interface.ast.interface/fields
+        {:patient/physicians {:db/ident :patient/primary-care-providers
+                              :db/valueType :db.type/ref
+                              :interface.ast.field/type :practitioner
+                              :db/cardinality db.cardinality/many
+                              :db/doc "A patient's physicians"
+                              :semantic/type :interface/physician}}
+      :interface.ast.interface/inherits #{:interface/person}
+      :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/patient]]
+      :interface.ast.interface/identifying-enum-part :db.part/user}
+   :interface/physician
+     {:interface.ast.interface/name :interface/physician
+      :interface.ast.interface/fields
+        {:physician/specialties {:db/ident :physician/specialties
+                                 :db/valueType :db.type/string
+                                 :interface.ast.field/type :string
+                                 :db/cardinality :db.cardinality/many
+                                 :db/doc "The physician's medical specialty or specialties"}}
+      :interface.ast.interface/inherits #{:interface/person}
+      :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/physician]]
+      :interface.ast.interface/identifying-enum-part :db.part/user}
+   :interface.ast/enum-map
+     {:interface/patient {:db/ident :interface/patient
+                          :db/part :db.part/user}
+      :interface/physician {:db/ident :interface/physician
+                            :db/part :db.part/user}}
 ```
 
 ## Prior Art
