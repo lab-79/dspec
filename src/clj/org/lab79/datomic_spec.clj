@@ -37,8 +37,15 @@
 (s/def :db/isComponent boolean?)
 (s/def :db/noHistory boolean?)
 (s/def :db/fulltext boolean?)
-(s/def :datomic/enum (s/and (s/keys :req [:db/ident])
-                            #(not (contains? % :db/valueType))))
+(s/def :datomic/partition-schema (s/keys :req [:db/id :db/ident :db.install/_partition]))
+(s/def :datomic/enum-schema (s/keys :req [:db/id :db/ident]))
+(s/def :datomic/field-schema (s/keys :req [:db/ident :db/valueType :db/cardinality
+                                    :db/id :db.install/_attribute]
+                              :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext]))
+(s/def :datomic/schema
+  (s/alt :datomic-partition :datomic/partiton-schema
+         :datomic-enum :datomic/enum-schema
+         :datomic-field :datomic/field-schema))
 
 ;
 ; clojure.spec describing how devs define data interfaces
@@ -152,14 +159,6 @@
 ;
 ; clojure.spec for the resulting Datomic schema maps that can be sent to Datomic transactor
 ;
-
-(s/def :datomic/schema
-  (s/alt :datomic-enum (s/and :datomic/enum
-                              :interface.ast/enum
-                              (s/keys :req [:db/id]))
-         :datomic-field (s/keys :req [:db/ident :db/valueType :db/cardinality
-                                      :db/id :db.install/_attribute]
-                                :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext])))
 
 (s/def :interface/field-def-parser
   (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
@@ -306,30 +305,67 @@
              m)))
 (stest/instrument `only-datomic-keys)
 
-(def tempid-factory-spec (s/fspec :args (s/alt :binary (s/cat :partition keyword? :num integer?)
-                                               :unary (s/cat :partition keyword?))
-                                  :ret any?))
+(def ^:private tempid-factory-spec
+  (s/fspec :args (s/alt :binary (s/cat :partition keyword? :num integer?)
+                        :unary (s/cat :partition keyword?))
+           :ret any?))
+
+(s/fdef semantic-ast->datomic-enum-schemas
+        :args (s/cat :ast :interface/ast
+                     :tempid-factory tempid-factory-spec)
+        :ret (s/coll-of :datomic/enum-schema))
+(defn- semantic-ast->datomic-enum-schemas
+  [ast tempid-factory]
+  (for [[_ enum] (:interface.ast/enum-map ast)]
+    (-> enum
+        only-datomic-keys
+        ; TODO Take into account partition for the enums
+        (assoc :db/id (tempid-factory (get enum :db/part :db.part/user))))))
+(stest/instrument `semantic-ast->datomic-enum-schemas)
+
+(s/fdef semantic-ast->datomic-enum-schemas
+        :args (s/cat :ast :interface/ast
+                     :tempid-factory tempid-factory-spec)
+        :ret (s/coll-of :datomic/field-schema))
+(defn- semantic-ast->datomic-field-schemas
+  [ast tempid-factory]
+  (flatten
+    (for [[_ intfc] (:interface.ast/interfaces ast)]
+      (for [[_ field] (:interface.ast.interface/fields intfc)]
+        (-> field
+            only-datomic-keys
+            (assoc :db/id (tempid-factory :db.part/db)
+                   :db.install/_attribute :db.part/db))))))
+(stest/instrument `semantic-ast->datomic-field-schemas)
+
+(s/fdef semantic-ast->datomic-partition-schemas
+        :args (s/cat :ast :interface/ast
+                     :tempid-factory tempid-factory-spec)
+        :ret (s/coll-of :datomic/partition-schema :kind vector?))
+(defn semantic-ast->datomic-partition-schemas
+  "Given a semantic AST, generates edn that represents partition datoms to add to the
+  Datomic schema. `tempid` will be passed in and will be `datomic.api/tempid`."
+  [ast tempid-factory]
+  (->> (:interface.ast/enum-map ast)
+       vals
+       (keep :db/part)
+       (filter #(not= :db.part/user %))
+       (mapv (fn [part] {:db/id (tempid-factory :db.part/db)
+                         :db/ident part
+                         :db.install/_partition :db.part/db}))))
+(stest/instrument `semantic-ast->datomic-partition-schemas)
+
 (s/fdef semantic-ast->datomic-schemas
         :args (s/cat :ast :interface/ast
                      :tempid-factory tempid-factory-spec)
-        :ret (s/coll-of :datomic/schema :kind vector?))
+        :ret (s/keys :opt [:datomic/field-schema :datomic/partition-schema :datomic/enum-schema]))
 (defn semantic-ast->datomic-schemas
   "Given a semantic AST, generates edn that represents attributes to add to
   Datomic schema. `tempid` will be passed in and will be `datomic.api/tempid`."
   [ast tempid-factory]
-  (let [enum-datoms (for [[_ enum] (:interface.ast/enum-map ast)]
-                      (-> enum
-                          only-datomic-keys
-                          ; TODO Take into account partition for the enums
-                          (assoc :db/id (tempid-factory (get enum :db/part :db.part/user)))))
-        field-datoms (flatten
-                       (for [[_ intfc] (:interface.ast/interfaces ast)]
-                         (for [[_ field] (:interface.ast.interface/fields intfc)]
-                           (-> field
-                               only-datomic-keys
-                               (assoc :db/id (tempid-factory :db.part/db)
-                                      :db.install/_attribute :db.part/db)))))]
-    (into [] (concat enum-datoms field-datoms))))
+  {:datomic/field-schema (semantic-ast->datomic-field-schemas ast tempid-factory)
+   :datomic/enum-schema (semantic-ast->datomic-enum-schemas ast tempid-factory)
+   :datomic/partition-schema (semantic-ast->datomic-partition-schemas ast tempid-factory)})
 (stest/instrument `semantic-ast->datomic-schemas)
 
 (s/fdef semantic-spec->datomic-schemas
@@ -458,11 +494,11 @@
     (into inherits (mapcat #(all-inherited-interface-names ast %) inherits))))
 (stest/instrument `all-inherited-interface-names)
 
+; TODO Be more specific than any?
+(s/def :gen/member-generator any?)
 ;(s/def :gen/generator-factory (s/fspec :args (s/cat :member-generator (s/? :gen/member-generator))
 ;                                       :ret any?))
 (s/def :gen/generator-factory fn?)
-; TODO Be more specific than any?
-(s/def :gen/member-generator any?)
 
 (s/fdef interface->clojure-spec-macros
         :args (s/cat :ast :interface/ast

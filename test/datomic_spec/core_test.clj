@@ -29,38 +29,72 @@
     :interface.def/identify-via :datomic-spec/interfaces
     :interface.def/identifying-enum-part :db.part/user}])
 
+(defn get-partition-name
+  [db partition-eid]
+  (d/q '[:find ?ident .
+         :in $ ?p
+         :where [:db.part/db :db.install/partition ?p]
+                [?p :db/ident ?ident]]
+       db partition-eid))
+
 (deftest tests
   (testing "a semantic spec"
     (testing "identifying its type via :datomic-spec/interfaces"
       (let [spec {:interface.def/name :interface/eponym
                   :interface.def/fields {}
                   :interface.def/identify-via :datomic-spec/interfaces
-                  :interface.def/identifying-enum-part :db.part/user}]
+                  :interface.def/identifying-enum-part :db.part/test}]
         (testing "generating Datomic schemas"
-          (let [datomic-schemas (-> spec
-                                    semantic-spec->semantic-ast
-                                    (semantic-ast->datomic-schemas d/tempid))]
-            ; TODO Test entity is placed in proper partition
+          (let [{:datomic/keys [field-schema
+                                enum-schema
+                                partition-schema]} (-> spec
+                                                       semantic-spec->semantic-ast
+                                                       (semantic-ast->datomic-schemas d/tempid))]
             (is (= #{{:db/ident :datomic-spec/interfaces
                       :db/valueType :db.type/ref
                       :db/cardinality :db.cardinality/many
                       :db/index true
-                      :db.install/_attribute :db.part/db}
-                     {:db/ident :interface/eponym}}
-                   (set (map #(dissoc % :db/id) datomic-schemas))))))))
+                      :db.install/_attribute :db.part/db}}
+                   (set (map #(dissoc % :db/id) field-schema))))
+            (is (= #{{:db/ident :interface/eponym}}
+                   (set (map #(dissoc % :db/id) enum-schema))))
+            (is (= #{{:db/ident :db.part/test
+                      :db.install/_partition :db.part/db}}
+                   (set (map #(dissoc % :db/id) partition-schema))))
+            (testing "writing interface enums to the correct partitions"
+              (let [db-uri "datomic:mem://test"]
+                (d/create-database db-uri)
+                (let [conn (d/connect db-uri)
+                      db (d/db conn)
+                      _ (register-specs-for-ast! (semantic-spec->semantic-ast spec) d/tempid db-id?)
+                      datom (gen/generate (s/gen :interface/eponym))
+                      tempid (:db/id datom)
+                      {:keys [db-after]} (-> db
+                                             (d/with partition-schema)
+                                             :db-after
+                                             (d/with (concat enum-schema field-schema))
+                                             :db-after
+                                             (d/with [datom]))
+                      enum-eid (d/q '[:find ?e .
+                                      :in $ ?enum
+                                      :where [?e :db/ident ?enum]]
+                                    db-after :interface/eponym)
+                      partition-eid (d/part enum-eid)
+                      partition-name (get-partition-name db-after partition-eid)]
+                  (is (= partition-name :db.part/test)))))))))
     (testing "identifying its type via existence of an attribute"
       (let [spec {:interface.def/name :interface/id-by-attr
                   :interface.def/fields {:obj/identifying-attr [:keyword]}
                   :interface.def/identify-via ['[?e :obj/identifying-attr]]}]
         (testing "generating Datomic schemas"
-          (let [datomic-schemas (-> spec
-                                    semantic-spec->semantic-ast
-                                    (semantic-ast->datomic-schemas d/tempid))]
+          (let [{:datomic/keys [field-schema]} (-> spec
+                                                   semantic-spec->semantic-ast
+                                                   (semantic-ast->datomic-schemas d/tempid))]
             (is (= #{{:db/ident :obj/identifying-attr
                       :db/valueType :db.type/keyword
                       :db/cardinality :db.cardinality/one
                       :db.install/_attribute :db.part/db}}
-                   (set (map #(dissoc % :db/id) datomic-schemas))))))))
+                   (set (map #(dissoc % :db/id) field-schema))))))))
     (testing "with primitively typed attributes"
       (testing "of type :keyword"
         (let [spec {:interface.def/name :interface/entity-with-keyword
@@ -556,10 +590,10 @@
                                               :interface.ast.interface/identify-via ['[?e :user/username]]}}
                     :interface.ast/enum-map {}}))))
         (testing "generating Datomic schemas"
-          (let [datomic-schemas (-> user-spec
-                                    semantic-spec->semantic-ast
-                                    (semantic-ast->datomic-schemas d/tempid))]
-            (is (every? db-id? (map :db/id datomic-schemas)))
+          (let [{:keys [datomic/field-schema]} (-> user-spec
+                                                   semantic-spec->semantic-ast
+                                                   (semantic-ast->datomic-schemas d/tempid))]
+            (is (every? db-id? (map :db/id field-schema)))
             (is (= #{{:db/ident :user/registeredAt
                       :db/valueType :db.type/instant
                       :db/cardinality :db.cardinality/one
@@ -576,7 +610,7 @@
                       :db/doc "A user's username"
                       :db/unique :db.unique/identity
                       :db.install/_attribute :db.part/db}}
-                   (set (map #(dissoc % :db/id) datomic-schemas)))))))))
+                   (set (map #(dissoc % :db/id) field-schema)))))))))
   (testing "a collection of semantic specs"
     (testing "with internal references between specs"
       (let [specs [{:interface.def/name :interface/entity-with-valid-ref
