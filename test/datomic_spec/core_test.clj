@@ -18,24 +18,29 @@
   [{:interface.def/name :interface/child
     :interface.def/fields {:person/name [:string]}
     :interface.def/inherits [:interface/mother :interface/father]
-    :interface.def/identify-via :datomic-spec/interfaces}
+    :interface.def/identify-via :datomic-spec/interfaces
+    :interface.def/identifying-enum-part :db.part/user}
    {:interface.def/name :interface/mother
     :interface.def/fields {:person/personality [:enum #{:happy :sad}]}
-    :interface.def/identify-via :datomic-spec/interfaces}
+    :interface.def/identify-via :datomic-spec/interfaces
+    :interface.def/identifying-enum-part :db.part/user}
    {:interface.def/name :interface/father
     :interface.def/fields {:person/bald? [:boolean]}
-    :interface.def/identify-via :datomic-spec/interfaces}])
+    :interface.def/identify-via :datomic-spec/interfaces
+    :interface.def/identifying-enum-part :db.part/user}])
 
 (deftest tests
   (testing "a semantic spec"
     (testing "identifying its type via :datomic-spec/interfaces"
       (let [spec {:interface.def/name :interface/eponym
                   :interface.def/fields {}
-                  :interface.def/identify-via :datomic-spec/interfaces}]
+                  :interface.def/identify-via :datomic-spec/interfaces
+                  :interface.def/identifying-enum-part :db.part/user}]
         (testing "generating Datomic schemas"
           (let [datomic-schemas (-> spec
                                     semantic-spec->semantic-ast
                                     (semantic-ast->datomic-schemas d/tempid))]
+            ; TODO Test entity is placed in proper partition
             (is (= #{{:db/ident :datomic-spec/interfaces
                       :db/valueType :db.type/ref
                       :db/cardinality :db.cardinality/many
@@ -466,7 +471,8 @@
             pet-spec {:interface.def/name :interface/pet
                       :interface.def/fields {:pet/name [:string "A pet's name"
                                                                 :gen/should-generate]}
-                      :interface.def/identify-via :datomic-spec/interfaces}
+                      :interface.def/identify-via :datomic-spec/interfaces
+                      :interface.def/identifying-enum-part :db.part/user}
             ast (semantic-spec-coll->semantic-ast [spec pet-spec])]
         (testing "generating data with default spec generators"
           (register-specs-for-ast! ast d/tempid db-id?)
@@ -486,7 +492,8 @@
       (testing "of strings"
         (let [spec {:interface.def/name :interface/entity-with-string-collection
                     :interface.def/fields {:obj/tags [[:string] "A collection of strings"]}
-                    :interface.def/identify-via :datomic-spec/interfaces}]
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/other}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -494,21 +501,22 @@
                                               {:interface/entity-with-string-collection
                                                {:interface.ast.interface/name :interface/entity-with-string-collection
                                                 :interface.ast.interface/fields
-                                                {:obj/tags {:db/ident :obj/tags
-                                                            :db/valueType :db.type/string
-                                                            :interface.ast.field/type :string
-                                                            :db/cardinality :db.cardinality/many
-                                                            :db/doc "A collection of strings"}
-                                                 :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
-                                                                           :db/valueType :db.type/ref
-                                                                           :db/index true
-                                                                           :interface.ast.field/type :enum
-                                                                           :interface.ast.field/possible-enum-vals #{:interface/entity-with-string-collection}
-                                                                           :interface.ast.field/required true
-                                                                           :db/cardinality :db.cardinality/many}}
+                                                  {:obj/tags {:db/ident :obj/tags
+                                                              :db/valueType :db.type/string
+                                                              :interface.ast.field/type :string
+                                                              :db/cardinality :db.cardinality/many
+                                                              :db/doc "A collection of strings"}
+                                                   :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
+                                                                             :db/valueType :db.type/ref
+                                                                             :db/index true
+                                                                             :interface.ast.field/type :enum
+                                                                             :interface.ast.field/possible-enum-vals #{:interface/entity-with-string-collection}
+                                                                             :interface.ast.field/required true
+                                                                             :db/cardinality :db.cardinality/many}}
                                                 :interface.ast.interface/inherits #{}
                                                 :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/entity-with-string-collection]]}}
-                      :interface.ast/enum-map {:interface/entity-with-string-collection {:db/ident :interface/entity-with-string-collection}}})))))))
+                      :interface.ast/enum-map {:interface/entity-with-string-collection {:db/ident :interface/entity-with-string-collection
+                                                                                         :db/part :db.part/other}}})))))))
     (testing "with multiple attributes having multiple enums"
       (testing "semantic-spec->semantic-ast"
         (testing "should combine the enums")))
@@ -576,7 +584,8 @@
                     :interface.def/identify-via ['[?e :obj/valid-attr]]}
                    {:interface.def/name :interface/refable
                     :interface.def/fields {:refable/valid-attr [:string "Refable attr"]}
-                    :interface.def/identify-via :datomic-spec/interfaces}]
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}]
             ast (semantic-spec-coll->semantic-ast specs)]
         (testing "semantic-spec-coll->semantic-ast"
           (is (= ast
@@ -606,7 +615,8 @@
                                                                     :db/cardinality :db.cardinality/many}}
                                        :interface.ast.interface/inherits #{}
                                        :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/refable]]}}
-                  :interface.ast/enum-map {:interface/refable {:db/ident :interface/refable}}}))
+                  :interface.ast/enum-map {:interface/refable {:db/ident :interface/refable
+                                                               :db/part :db.part/user}}}))
           (testing "sets :db/valueType to :db.type/ref"
             (is (= :db.type/ref (get-in ast [:interface.ast/interfaces
                                              :interface/entity-with-valid-ref
@@ -682,9 +692,12 @@
                                         :interface.ast.interface/identify-via ['[?e :datomic-spec/interfaces :interface/father]]}}
                     :interface.ast/enum-map {:happy {:db/ident :happy}
                                              :sad {:db/ident :sad}
-                                             :interface/child {:db/ident :interface/child}
-                                             :interface/mother {:db/ident :interface/mother}
-                                             :interface/father {:db/ident :interface/father}}}))))
+                                             :interface/child {:db/ident :interface/child
+                                                               :db/part :db.part/user}
+                                             :interface/mother {:db/ident :interface/mother
+                                                                :db/part :db.part/user}
+                                             :interface/father {:db/ident :interface/father
+                                                                :db/part :db.part/user}}}))))
         (testing "generating clojure.spec definitions"
           (let [ast (semantic-spec-coll->semantic-ast specs)]
             (register-specs-for-ast! ast d/tempid db-id?)
