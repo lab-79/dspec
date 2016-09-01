@@ -68,17 +68,15 @@
             (testing "writing interface enums to the correct partitions"
               (let [db-uri "datomic:mem://test"]
                 (d/create-database db-uri)
+                (register-specs-for-ast! (semantic-spec->semantic-ast spec) d/tempid db-id?)
                 (let [conn (d/connect db-uri)
                       db (d/db conn)
-                      _ (register-specs-for-ast! (semantic-spec->semantic-ast spec) d/tempid db-id?)
-                      datom (gen/generate (s/gen :interface/eponym))
-                      tempid (:db/id datom)
                       {:keys [db-after]} (-> db
                                              (d/with partition-schema)
                                              :db-after
                                              (d/with (concat enum-schema field-schema))
                                              :db-after
-                                             (d/with [datom]))
+                                             (d/with [(gen/generate (s/gen :interface/eponym))]))
                       enum-eid (d/q '[:find ?e .
                                       :in $ ?enum
                                       :where [?e :db/ident ?enum]]
@@ -205,8 +203,7 @@
       (testing "of type :bigint"
         (let [spec {:interface.def/name :interface/entity-with-bigint
                     :interface.def/fields {:obj/bigint-attr [:bigint "A bigint attribute"]}
-                    :interface.def/identify-via ['[?e :obj/bigint-attr]]}
-              ast (semantic-spec->semantic-ast spec)]
+                    :interface.def/identify-via ['[?e :obj/bigint-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
@@ -457,8 +454,7 @@
         (let [spec {:interface.def/name :interface/entity-with-many-enum
                     :interface.def/fields {:obj/many-enum-attr ["A many-cardinality enum attribute"
                                                                 [:enum] #{:some.enum/a :some.enum/b}]}
-                    :interface.def/identify-via ['[?e :obj/many-enum-attr]]}
-              ast (semantic-spec->semantic-ast spec)]
+                    :interface.def/identify-via ['[?e :obj/many-enum-attr]]}]
           (testing "semantic-spec->semantic-ast"
             (let [ast (semantic-spec->semantic-ast spec)]
               (is (= ast
