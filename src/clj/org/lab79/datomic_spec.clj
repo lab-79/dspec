@@ -2,12 +2,10 @@
   (:require [clojure.core.match :refer [match]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
-            [clojure.spec.test :as stest]
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS]]
             [com.rpl.specter.macros :refer [select]]
-            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]
-            )
+            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]])
   (:import (java.util Date)))
 
 
@@ -16,7 +14,6 @@
         :ret boolean?)
 (defn- arity [f]
   (-> f class .getDeclaredMethods first .getParameterTypes alength))
-(stest/instrument `arity)
 
 ;
 ; Datomic clojure.spec
@@ -249,7 +246,6 @@
                [[:required _]] (assoc-in parsed [:interface.ast/field :interface.ast.field/required] true)))
       parsed
       field-tags)))
-(stest/instrument `parse-field-def)
 
 (s/fdef semantic-spec->semantic-ast
         :args (s/cat :spec :interface/def)
@@ -288,7 +284,6 @@
      :interface.ast/enum-map (cond-> enum-map
                                      (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name
                                                                                              :db/part identifying-enum-part}}))}))
-(stest/instrument `semantic-spec->semantic-ast)
 
 (s/fdef only-datomic-keys
         :args (s/cat :map (s/map-of keyword? any?))
@@ -303,7 +298,6 @@
                (and (re-matches #"^db" (namespace kw))
                     (not= kw :db/part)))
              m)))
-(stest/instrument `only-datomic-keys)
 
 (def ^:private tempid-factory-spec
   (s/fspec :args (s/alt :binary (s/cat :partition keyword? :num integer?)
@@ -321,7 +315,6 @@
         only-datomic-keys
         ; TODO Take into account partition for the enums
         (assoc :db/id (tempid-factory (get enum :db/part :db.part/user))))))
-(stest/instrument `semantic-ast->datomic-enum-schemas)
 
 (s/fdef semantic-ast->datomic-enum-schemas
         :args (s/cat :ast :interface/ast
@@ -336,7 +329,6 @@
             only-datomic-keys
             (assoc :db/id (tempid-factory :db.part/db)
                    :db.install/_attribute :db.part/db))))))
-(stest/instrument `semantic-ast->datomic-field-schemas)
 
 (s/fdef semantic-ast->datomic-partition-schemas
         :args (s/cat :ast :interface/ast
@@ -353,7 +345,6 @@
        (mapv (fn [part] {:db/id (tempid-factory :db.part/db)
                          :db/ident part
                          :db.install/_partition :db.part/db}))))
-(stest/instrument `semantic-ast->datomic-partition-schemas)
 
 (s/fdef semantic-ast->datomic-schemas
         :args (s/cat :ast :interface/ast
@@ -366,7 +357,6 @@
   {:datomic/field-schema (semantic-ast->datomic-field-schemas ast tempid-factory)
    :datomic/enum-schema (semantic-ast->datomic-enum-schemas ast tempid-factory)
    :datomic/partition-schema (semantic-ast->datomic-partition-schemas ast tempid-factory)})
-(stest/instrument `semantic-ast->datomic-schemas)
 
 (s/fdef semantic-spec->datomic-schemas
         :args (s/cat :spec :interface/def
@@ -378,7 +368,6 @@
   (-> spec
       semantic-spec->semantic-ast
       (semantic-ast->datomic-schemas tempid-factory)))
-(stest/instrument `semantic-spec->datomic-schemas)
 
 (defn validate-semantic-ast
   [ast]
@@ -410,7 +399,6 @@
         combined-ast (apply merge-with merge asts)]
     (validate-semantic-ast combined-ast)
     combined-ast))
-(stest/instrument `semantic-spec-coll->semantic-ast)
 
 ; TODO Rename
 (s/fdef semantic-spec-coll->datomic-schemas
@@ -423,7 +411,6 @@
   (-> specs
       semantic-spec-coll->semantic-ast
       (semantic-ast->datomic-schemas tempid-factory)))
-(stest/instrument `semantic-spec-coll->datomic-schemas)
 
 (defn validate-semantic-interfaces
   "Validates a collection of semantic interface definitions"
@@ -479,7 +466,6 @@
                               (map interfaces)
                               (mapcat (partial ast&interface->ast-fields ast)))]
     (into (set inherited-fields) immediate-fields)))
-(stest/instrument `ast&interface->ast-fields)
 
 (s/fdef all-inherited-interface-names
         :args (s/cat :ast :interface/ast
@@ -492,7 +478,6 @@
   (let [interface (-> ast :interface.ast/interfaces interface-name)
         {:keys [interface.ast.interface/inherits]} interface]
     (into inherits (mapcat #(all-inherited-interface-names ast %) inherits))))
-(stest/instrument `all-inherited-interface-names)
 
 ; TODO Be more specific than any?
 (s/def :gen/member-generator any?)
@@ -580,7 +565,6 @@
                       `#(gen/fmap
                          (fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~all-my-interfaces}))
                          ~(custom-generator-factory base-gen-spec))))))))
-(stest/instrument `interface->clojure-spec-macros)
 
 (def ^:private NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
@@ -605,7 +589,6 @@
                       (filter #(and (interface-type? %) (not= name %))))
         dependencies (concat inherits field-deps ref-deps)]
     (reduce #(ssdep/depend %1 name %2) deps-graph dependencies)))
-(stest/instrument `add-interface-to-deps-graph)
 
 (s/fdef field->clojure-spec-macro
         :arg (s/cat :field :interface.ast/field
@@ -647,7 +630,6 @@
                      (s/with-gen ~pred
                                  #(gen/not-empty (gen/string-alphanumeric))))
           `(s/def ~ident ~pred))))))
-(stest/instrument `field->clojure-spec-macro)
 
 (s/fdef interface->clojure-spec-defs
         :args (s/cat :ast :interface/ast
@@ -675,7 +657,6 @@
                    (merge macros
                           {ident (field->clojure-spec-macro field (get gen-map ident))}))
                  {name interface-spec-def}))))
-(stest/instrument `interface->clojure-spec-defs)
 
 (s/fdef deps-graph-for-ast
         :args (s/cat :ast :interface/ast)
@@ -687,7 +668,6 @@
   (reduce #(add-interface-to-deps-graph ast %2 %1)
           (ssdep/graph)
           (vals interfaces)))
-(stest/instrument `deps-graph-for-ast)
 
 (s/fdef ast->clojure-spec-macros
         :args (s/cat :ast :interface/ast
@@ -701,7 +681,6 @@
     (fn [macros interface] (merge macros (interface->clojure-spec-defs ast interface gen-map)))
     {:datomic-spec/interfaces `(s/def :datomic-spec/interfaces (s/coll-of keyword? :kind set?))}
     (vals interfaces)))
-(stest/instrument `ast->clojure-spec-macros)
 
 (s/fdef register-generative-specs-for-ast!
         :args (s/cat :ast :interface/ast
@@ -720,7 +699,6 @@
       (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
     (doseq [spec-name (ssdep/topo-sort deps-graph)]
       (eval (macroexpand (macros spec-name))))))
-(stest/instrument `register-generative-specs-for-ast!)
 
 (s/fdef register-specs-for-ast!
         :args (s/cat :ast :interface/ast
@@ -733,4 +711,3 @@
   should be associated with the AST."
   [ast tempid-factory db-id?]
   (register-generative-specs-for-ast! ast {} tempid-factory db-id?))
-(stest/instrument `register-specs-for-ast!)

@@ -3,6 +3,7 @@
             [clojure.test.check :as tc]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
+            [clojure.spec.test :as stest]
             [org.lab79.datomic-spec :refer :all]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
@@ -10,9 +11,12 @@
             )
   (:import (datomic.db DbId)))
 
+; Instrument all our functions in datomic-spec
+(-> (stest/enumerate-namespace 'org.lab79.datomic-spec)
+    stest/instrument)
+
 (def db-id? #(or (integer? %)
                  (instance? datomic.db.DbId %)))
-
 
 (def family-semantic-specs
   [{:interface.def/name :interface/child
