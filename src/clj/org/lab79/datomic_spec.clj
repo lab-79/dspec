@@ -410,34 +410,23 @@
   (s/valid? (s/+ :interface/def) specs))
 
 
-;; TODO Use defmulti instead?
-(defn- ast-field-type->predicate
-  "Given the AST representation of a field, return the appropriate predicate
-  testing the validity of the field value. These predicates are intended to
-  be used in defining and registering the appropriate clojure.spec spec for
-  the field."
-  ([type]
-   {:pre [(s/valid? :interface.ast.field/type type)]
-    :post [(s/valid? (s/or :fn fn? :kw keyword?) %)]
-    }
-   (case type
-     :keyword keyword?
-     :string string?
-     :boolean boolean?
-     :long number?
-     :bigint integer?
-     :float float?
-     :double float?
-     :bigdec integer?
-     :instant inst?
-     :uuid uuid?
-     :uri uri?
-     :bytes bytes?
-     type))
-  ([type possible-enum-vals]
-   {:pre [(= :enum type)
-          (s/valid? :interface.ast.field/possible-enum-vals possible-enum-vals)]}
-   (into #{} possible-enum-vals)))
+; Given the AST representation of a field, return the appropriate predicate
+; testing the validity of the field value. These predicates are intended to
+; be used in defining and registering the appropriate clojure.spec spec for
+; the field.
+(def ^:private ast-field-type->predicate
+  {:keyword keyword?
+   :string string?
+   :boolean boolean?
+   :long number?
+   :bigint integer?
+   :float float?
+   :double float?
+   :bigdec integer?
+   :instant inst?
+   :uuid uuid?
+   :uri uri?
+   :bytes bytes?})
 
 ; TODO Get more specific than any?
 (s/def :clojure.spec/deps-graph any?)
@@ -493,7 +482,8 @@
           inherited-custom-generators? (seq (keep gen-map all-inherited))
           identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
 
-          ; We use distinct here because we could have multiple :datomic-spec/interfaces attributes that we inherit
+          ; We use distinct here because ancestors might share the same attributes, and a shared attribute
+          ; would appread multiple times here.
           req-keys (conj (vec (distinct (map :db/ident req-fields))) :db/id)
           opt-keys (mapv :db/ident opt-fields)
           base-spec `(s/keys :req ~req-keys, :opt ~opt-keys)
@@ -596,8 +586,8 @@
                 ; optional
                 interface.ast.field/possible-enum-vals]} field
         pred (if possible-enum-vals
-               (ast-field-type->predicate type possible-enum-vals)
-               (ast-field-type->predicate type))]
+               possible-enum-vals
+               (get ast-field-type->predicate type type))]
     (case cardinality
       :db.cardinality/many
       (if custom-generator-factory
