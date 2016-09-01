@@ -42,8 +42,7 @@ specification.
 ## Usage
 
 We adopt a declarative edn specification for defining stronger semantics on top
-of Datomic schemas. This alternative mimics syntax from
-[Yuppiechef/datomic-schema](https://github.com/Yuppiechef/datomic-schema).
+of Datomic schemas.
 
 As a developer using this library, most of your application of this library
 will be to convert some collection of specs to:
@@ -792,12 +791,67 @@ And here is how interface-based polymorphism is encapsulated in our AST:
 
 ## Prior Art
 
-This library was influenced by reviewing existing, related work. None of the
-libraries had everything we wanted, so we worked on a new one.
+There are several other Clojure libraries that add additional semantics on top of Datomic,
+make it easier to work with Datomic queries and transactions, or help with .
+We've drawn inspiration from these, but decided to work on our own library because none of
+them quite fit our needs and desired style.
+
+Stronger Datomic Semantics
 
 - https://github.com/yuppiechef/datomic-schema
 - https://github.com/cloojure/tupelo-datomic
 - http://docs.caudate.me/adi/
+- https://github.com/SparkFund/spec-tacular
+- https://github.com/facjure/atomic
+- https://github.com/cldwalker/datomico
+- https://github.com/ohlo/ginandtomic
+- https://github.com/devn/datomic-simple
+- https://github.com/eeng/datomic-qb
+- https://github.com/moquist/datomic-schematode
+- https://github.com/zololabs/demonic
+- https://github.com/appcanary/crustacean
+- https://github.com/vlacs/hatch
+- https://github.com/wkf/crudo
+
+Easier to work with Datomic queries and transactions:
+
+- https://github.com/flyingmachine/datomic-junk
+- https://github.com/juxt/datomic-extras
+- https://github.com/democracyworks/datomic-toolbox
+- https://github.com/magnars/datomic-snippets
+- https://github.com/webnf/webnf/tree/master/datomic
+- https://github.com/mysema/datomic-tools
+- https://github.com/evanspa/pe-datomic-utils
+- https://github.com/avodonosov/datomic-helpers
+- https://github.com/jonase/datomic-query-helpers
+- https://github.com/molst/hazel
+- https://github.com/rodnaph/attromic
+- https://github.com/totalperspective/fook
+- https://github.com/osbert/storable
+- https://github.com/mgaare/datomisc
+- https://github.com/halgari/fafnir
+- https://github.com/CareLogistics/wile
+- https://github.com/env/toolbox
+
+Datomic migrations:
+
+- https://github.com/juxt/joplin
+- https://github.com/Bijnagte/alchemist
+- https://github.com/rkneufeld/conformity
+- https://github.com/bitemyapp/brambling
+- https://github.com/RallySoftware/datomic-replication
+- https://github.com/guilespi/datomic-manage
+- https://github.com/ilshad/generations
+
+Storing arbitrary data in Datomic:
+
+- https://github.com/tailrecursion/monocopy
+- https://github.com/GoodGuide/datomizer
+- https://github.com/stathissideris/datomic-rtree
+
+Datomic and clojure.spec
+
+- https://github.com/alexanderkiel/datomic-spec
 
 ## License
 
