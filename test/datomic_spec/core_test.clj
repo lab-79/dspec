@@ -752,12 +752,29 @@
             ;  (is (= #{:db/id :person/personality} (set (keys conformed-mom)))))
             ))
         (testing "schemas generate entities with correct :datomic-spec/interfaces"
-          (let [child (gen/generate (s/gen :interface/child))
-                mother (gen/generate (s/gen :interface/mother))
-                father (gen/generate (s/gen :interface/father))]
-            (is (= (:datomic-spec/interfaces child) #{:interface/child :interface/mother :interface/father}))
-            (is (= (:datomic-spec/interfaces mother) #{:interface/mother}))
-            (is (= (:datomic-spec/interfaces father) #{:interface/father}))))
+          (testing "strictly using :datomic-spec/interfaces"
+            (let [child (gen/generate (s/gen :interface/child))
+                  mother (gen/generate (s/gen :interface/mother))
+                  father (gen/generate (s/gen :interface/father))]
+              (is (= (:datomic-spec/interfaces child) #{:interface/child :interface/mother :interface/father}))
+              (is (= (:datomic-spec/interfaces mother) #{:interface/mother}))
+              (is (= (:datomic-spec/interfaces father) #{:interface/father}))))
+          (testing "a hybrid :datomic-spec/interfaces and identify-via attributes"
+            (let [parent-spec {:interface.def/name :interface/parent-id-via-attr
+                               :interface.def/fields {:parent/name [:string :required]}
+                               :interface.def/identify-via ['[?e :parent/name]]}
+                  child-spec {:interface.def/name :interface/self-labeling-child-of-parent-id-via-attr
+                              :interface.def/fields {}
+                              :interface.def/inherits [:interface/parent-id-via-attr]
+                              :interface.def/identify-via :datomic-spec/interfaces
+                              :interface.def/identifying-enum-part :db.part/user}
+                  ast (semantic-spec-coll->semantic-ast [parent-spec child-spec])]
+              (register-specs-for-ast! ast d/tempid db-id?)
+              (let [child (gen/generate (s/gen :interface/self-labeling-child-of-parent-id-via-attr))]
+                (println child)
+                (is (= #{:interface/self-labeling-child-of-parent-id-via-attr}
+                       (:datomic-spec/interfaces child)))
+                (is (contains? child :parent/name))))))
         (testing "child schemas can generate parent keys"
           (let [generator (s/gen :interface/child)
                 data (gen/sample generator 100)]
