@@ -40,10 +40,6 @@
 (s/def :datomic/field-schema (s/keys :req [:db/ident :db/valueType :db/cardinality
                                     :db/id :db.install/_attribute]
                               :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext]))
-(s/def :datomic/schema
-  (s/alt :datomic-partition :datomic/partiton-schema
-         :datomic-enum :datomic/enum-schema
-         :datomic-field :datomic/field-schema))
 
 ;
 ; clojure.spec describing how devs define data interfaces
@@ -362,7 +358,7 @@
 (s/fdef semantic-spec->datomic-schemas
         :args (s/cat :spec :interface/def
                      :tempid-factory tempid-factory-spec)
-        :ret (s/+ :datomic/schema))
+        :ret (s/keys :opt [:datomic/field-schema :datomic/partition-schema :datomic/enum-schema]))
 (defn semantic-spec->datomic-schemas
   "Given a semantic spec, generates edn that represents attributes to add to Datomic schema"
   [spec tempid-factory]
@@ -405,7 +401,7 @@
 (s/fdef semantic-spec-coll->datomic-schemas
         :args (s/cat :specs (s/spec (s/+ :interface/def))
                      :tempid-factory tempid-factory-spec)
-        :ret (s/+ :datomic/schema))
+        :ret (s/keys :opt [:datomic/field-schema :datomic/partition-schema :datomic/enum-schema]))
 (defn semantic-spec-coll->datomic-schemas
   "Given a collection of semantic specs, generates edn that represents attributes to add to Datomic schema"
   [specs tempid-factory]
