@@ -23,9 +23,10 @@
 (s/def :db.install/_partition #{:db.part/db})
 
 (s/def :db/ident keyword?)
-(def datomic-value-types #{:db.type/string :db.type/boolean :db.type/long :db.type/bigint :db.type/float
-                           :db.type/double :db.type/bigdec :db.type/instant :db.type/uuid :db.type/uri
-                           :db.type/keyword :db.type/bytes :db.type/ref})
+(def ^:private datomic-value-types
+  #{:db.type/string :db.type/boolean :db.type/long :db.type/bigint :db.type/float
+    :db.type/double :db.type/bigdec :db.type/instant :db.type/uuid :db.type/uri
+    :db.type/keyword :db.type/bytes :db.type/ref})
 (s/def :db/valueType datomic-value-types)
 (s/def :db/cardinality #{:db.cardinality/one :db.cardinality/many})
 (s/def :db/doc string?)
@@ -61,8 +62,8 @@
 (s/def :interface.def/field
   (s/cat :field-tags (s/+ :interface.def.field/trait)))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
-(def datalog-pair-spec (s/tuple #{'?e} keyword?))
-(def datalog-triplet-spec (s/tuple #{'?e} keyword? any?))
+(def ^:private datalog-pair-spec (s/tuple #{'?e} keyword?))
+(def ^:private datalog-triplet-spec (s/tuple #{'?e} keyword? any?))
 (s/def :datalog/clause (s/or :datalog/pair datalog-pair-spec
                              :datalog/triplet datalog-triplet-spec))
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
@@ -90,7 +91,7 @@
   (s/alt :enum (s/cat :flag #{[:enum]}
                       :vals :interface.def.field.enum/vals)
          :non-enum (s/spec (s/cat :member-type :interface.def.field/single-non-enum-type))))
-(def semantic-value-types (into #{} (map (comp keyword name)) datomic-value-types))
+(def ^:private semantic-value-types (into #{} (map (comp keyword name)) datomic-value-types))
 (s/def :interface.def.field/single-non-enum-type
   (s/alt :db-value-type semantic-value-types
          :interface-type keyword?))
@@ -369,7 +370,7 @@
       semantic-spec->semantic-ast
       (semantic-ast->datomic-schemas tempid-factory)))
 
-(defn validate-semantic-ast
+(defn- validate-semantic-ast
   [ast]
   (let [enum-vals (set (select [:interface.ast/enum-map MAP-VALS :db/ident] ast))
         interface-names (set (select [:interface.ast/interfaces MAP-VALS :interface.ast.interface/name] ast))
