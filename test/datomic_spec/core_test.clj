@@ -121,12 +121,12 @@
             (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/keyword-attr :ok))
-              (is (= ::s/invalid (s/conform :obj/keyword-attr "ok"))))
+              (is (false? (s/valid? :obj/keyword-attr "ok"))))
             (testing "for entity interfaces"
               (is (s/valid? :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
                                                             :obj/keyword-attr :ok}))
-              (is (= ::s/invalid (s/conform :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
-                                                                            :obj/keyword-attr "ok"}))))
+              (is (false? (s/valid? :interface/entity-with-keyword {:db/id (d/tempid :db.part/user)
+                                                                    :obj/keyword-attr "ok"}))))
             (testing "and generating data"
               (let [generator (s/gen :interface/entity-with-keyword)
                     entity (gen/generate generator)]
@@ -176,7 +176,7 @@
             (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/boolean-attr true))
-              (is (= ::s/invalid (s/conform :obj/boolean-attr "true"))))
+              (is (false? (s/valid? :obj/boolean-attr "true"))))
             (testing "and generating data"
               (let [generator (s/gen :interface/entity-with-boolean)
                     entity (gen/generate generator)]
@@ -301,7 +301,7 @@
             (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/instant-attr #inst "2014-05-19T19:12:37.925-00:00"))
-              (is (= ::s/invalid (s/conform :obj/instant-attr "not a date"))))
+              (is (false? (s/valid? :obj/instant-attr "not a date"))))
             (testing "and generating data"
               (let [generator (s/gen :interface/entity-with-instant)
                     entity (gen/generate generator)]
@@ -330,7 +330,7 @@
             (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/id #uuid "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))
-              (is (= ::s/invalid (s/conform :obj/id "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))))
+              (is (false? (s/valid? :obj/id "91d7fcc5-d24d-4e33-a111-6ba69d14eb6a"))))
             (testing "and generating data"
               (let [generator (s/gen :interface/entity-with-uuid)
                     entity (gen/generate generator)]
@@ -358,7 +358,7 @@
             (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/uri-attr (java.net.URI/create "http://google.com/")))
-              (is (= ::s/invalid (s/conform :obj/uri-attr "google.com")))))))
+              (is (false? (s/valid? :obj/uri-attr "google.com")))))))
       (testing "of type :bytes"
         (let [spec {:interface.def/name :interface/entity-with-bytes
                     :interface.def/fields {:obj/bytes-attr [:bytes "A bytes attribute"]}
@@ -382,7 +382,7 @@
             (register-specs-for-ast! ast d/tempid db-id?)
             (testing "for entity attributes"
               (is (s/valid? :obj/bytes-attr (bytes (byte-array (map (comp byte int) "ascii")))))
-              (is (= ::s/invalid (s/conform :obj/bytes-attr "xyz"))))))))
+              (is (false? (s/valid? :obj/bytes-attr "xyz"))))))))
     (testing "with enum attributes"
       (testing "without docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-enum
@@ -411,7 +411,7 @@
             (testing "for entity attributes"
               (is (s/valid? :obj/enum-attr :some.enum/a))
               (is (s/valid? :obj/enum-attr :some.enum/b))
-              (is (= ::s/invalid (s/conform :obj/enum-attr :some.enum/c)))))))
+              (is (false? (s/valid? :obj/enum-attr :some.enum/c)))))))
       (testing "with docstring per enum"
         (let [spec {:interface.def/name :interface/entity-with-docstring-enum
                     :interface.def/fields {:obj/docstring-enum-attr ["A docstring'ed enum attribute"
@@ -444,7 +444,7 @@
             (testing "for entity attributes"
               (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/a))
               (is (s/valid? :obj/docstring-enum-attr :some.doc.enum/b))
-              (is (= ::s/invalid (s/conform :obj/docstring-enum-attr :some.enum/a))))
+              (is (false? (s/valid? :obj/docstring-enum-attr :some.enum/a))))
             (testing "and generating data"
               (let [generator (s/gen :interface/entity-with-docstring-enum)
                     entity (gen/generate generator)]
