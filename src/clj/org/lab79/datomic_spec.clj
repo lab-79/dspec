@@ -5,15 +5,18 @@
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS]]
             [com.rpl.specter.macros :refer [select]]
-            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]])
-  (:import (java.util Date)))
+            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
-(s/fdef arity
-        :args (s/cat :f fn?)
-        :ret boolean?)
-(defn- arity [f]
+(s/fdef arity :args (s/cat :f fn?) :ret boolean?)
+(defn- arity
+  "Returns the arity -- i.e., the number of arguments -- of a function f."
+  [f]
   (-> f class .getDeclaredMethods first .getParameterTypes alength))
+
+(def datomic-schema-keys
+  #{:db/id :db/ident :db/valueType :db/cardinality :db/doc :db/unique :db/index :db/isComponent :db/noHistory
+    :db/fulltext :db.install/_attribute :db.install/_partition})
 
 ;
 ; Datomic clojure.spec
@@ -24,9 +27,8 @@
 
 (s/def :db/ident keyword?)
 (def ^:private datomic-value-types
-  #{:db.type/string :db.type/boolean :db.type/long :db.type/bigint :db.type/float
-    :db.type/double :db.type/bigdec :db.type/instant :db.type/uuid :db.type/uri
-    :db.type/keyword :db.type/bytes :db.type/ref})
+  #{:db.type/string :db.type/boolean :db.type/long :db.type/bigint :db.type/float :db.type/double :db.type/bigdec
+    :db.type/instant :db.type/uuid :db.type/uri :db.type/keyword :db.type/bytes :db.type/ref})
 (s/def :db/valueType datomic-value-types)
 (s/def :db/cardinality #{:db.cardinality/one :db.cardinality/many})
 (s/def :db/doc string?)
@@ -36,10 +38,9 @@
 (s/def :db/noHistory boolean?)
 (s/def :db/fulltext boolean?)
 (s/def :datomic/partition-schema (s/keys :req [:db/id :db/ident :db.install/_partition]))
-(s/def :datomic/enum-schema (s/keys :req [:db/id :db/ident]))
-(s/def :datomic/field-schema (s/keys :req [:db/ident :db/valueType :db/cardinality
-                                    :db/id :db.install/_attribute]
-                              :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext]))
+(s/def :datomic/enum-schema (s/keys :req [:db/id :db/ident] :opt [:db/doc]))
+(s/def :datomic/field-schema (s/keys :req [:db/ident :db/valueType :db/cardinality :db/id :db.install/_attribute]
+                                     :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext]))
 
 ;
 ; clojure.spec describing how devs define data interfaces
@@ -55,8 +56,7 @@
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/coll-of :interface.def/field :kind set?))
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
-(s/def :interface.def/field
-  (s/cat :field-tags (s/+ :interface.def.field/trait)))
+(s/def :interface.def/field (s/+ :interface.def.field/trait))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
 (def ^:private datalog-pair-spec (s/tuple #{'?e} keyword?))
 (def ^:private datalog-triplet-spec (s/tuple #{'?e} keyword? any?))
@@ -161,7 +161,7 @@
         :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
 (defn- parse-field-def
   [field-def field-name]
-  (let [{:keys [field-tags]} (s/conform :interface.def/field field-def)
+  (let [field-tags (s/conform :interface.def/field field-def)
         parsed {:interface.ast/field {:db/ident field-name}
                 :interface.ast/enum-map {}}]
     (reduce
@@ -282,19 +282,14 @@
                                      (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name
                                                                                              :db/part identifying-enum-part}}))}))
 
-(s/fdef only-datomic-keys
-        :args (s/cat :map (s/map-of keyword? any?))
-        :ret (s/map-of keyword? any?))
-(defn- only-datomic-keys
-  [m]
-  (into {} (filter
-             #(let [key (first %)
-                    kw (if (keyword? key)
-                         key
-                         (:k key))]
-               (and (re-matches #"^db" (namespace kw))
-                    (not= kw :db/part)))
-             m)))
+
+(s/fdef filter-kv
+        :args (s/cat :pred fn?
+                     :hash-map map?)
+        :ret map?)
+(defn- filter-kv
+  [pred hash-map]
+  (into {} (filter (fn [[k v]] (pred k v)) hash-map)))
 
 (def ^:private tempid-factory-spec
   (s/fspec :args (s/alt :binary (s/cat :partition keyword? :num integer?)
@@ -308,12 +303,11 @@
 (defn- semantic-ast->datomic-enum-schemas
   [ast tempid-factory]
   (for [[_ enum] (:interface.ast/enum-map ast)]
-    (-> enum
-        only-datomic-keys
-        ; TODO Take into account partition for the enums
-        (assoc :db/id (tempid-factory (get enum :db/part :db.part/user))))))
+    (assoc
+      (filter-kv (fn [k _] (contains? datomic-schema-keys k)) enum)
+      :db/id (tempid-factory (get enum :db/part :db.part/user)))))
 
-(s/fdef semantic-ast->datomic-enum-schemas
+(s/fdef semantic-ast->datomic-field-schemas
         :args (s/cat :ast :interface/ast
                      :tempid-factory tempid-factory-spec)
         :ret (s/coll-of :datomic/field-schema))
@@ -322,10 +316,10 @@
   (flatten
     (for [[_ intfc] (:interface.ast/interfaces ast)]
       (for [[_ field] (:interface.ast.interface/fields intfc)]
-        (-> field
-            only-datomic-keys
-            (assoc :db/id (tempid-factory :db.part/db)
-                   :db.install/_attribute :db.part/db))))))
+        (assoc
+          (filter-kv (fn [k _] (contains? datomic-schema-keys k)) field)
+          :db/id (tempid-factory :db.part/db)
+                      :db.install/_attribute :db.part/db)))))
 
 (s/fdef semantic-ast->datomic-partition-schemas
         :args (s/cat :ast :interface/ast
