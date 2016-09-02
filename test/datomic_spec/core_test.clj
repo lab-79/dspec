@@ -794,7 +794,20 @@
           (let [generator (s/gen :interface/child)
                 data (gen/sample generator 100)]
             (is (= #{:db/id :person/name :person/personality :person/bald? :datomic-spec/interfaces} (set (mapcat keys data))))))
-        ))))
+        ))
+    (testing "proper toposorted ordering of registering clojure.specs"
+      (let [specs [{:interface.def/name :interface/tx
+                    :interface.def/fields
+                                        {:tx.import/src [:interface.tx/import-src]}
+                    :interface.def/identify-via ['[?e :tx.import/src]]}
+                   {:interface.def/name :interface.tx/import-src
+                    :interface.def/fields {}
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}]]
+        ; This should not throw
+        (-> specs
+            semantic-spec-coll->semantic-ast
+            (register-specs-for-ast! d/tempid db-id?))))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
