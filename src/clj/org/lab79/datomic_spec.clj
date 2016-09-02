@@ -577,9 +577,13 @@
   [interface-name fields deps-graph]
   (reduce
     (fn [deps-graph field]
-      (let [{:keys [interface.ast.field/type]} field]
-        (if (and (interface-type? type) (not= interface-name type))
-          (ssdep/depend deps-graph (:db/ident field) type)
+      (let [{field-name :db/ident
+             :keys [interface.ast.field/type]} field]
+        (if (and (interface-type? type)
+                 (not= interface-name type)
+                 ; Avoid circular dependency
+                 (not (ssdep/depends? deps-graph type field-name)))
+          (ssdep/depend deps-graph field-name type)
           deps-graph)))
     deps-graph
     fields))
@@ -600,7 +604,11 @@
                       (filter #(and (interface-type? %) (not= name %))))
         dependencies (concat inherits field-deps)
         deps-graph' (add-field-refs-to-deps-graph name all-fields deps-graph)]
-    (reduce #(ssdep/depend %1 name %2) deps-graph' dependencies)))
+    (reduce #(if (ssdep/depends? %1 %2 name)
+              %1
+              (ssdep/depend %1 name %2))
+            deps-graph'
+            dependencies)))
 
 (s/fdef field->clojure-spec-macro
         :arg (s/cat :field :interface.ast/field
