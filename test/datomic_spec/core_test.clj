@@ -874,8 +874,11 @@
                                                                             (semantic-ast->datomic-schemas d/tempid))
             db (-> (d/db c)
                    (d/with partition-schema)
+                   :db-after
                    (d/with enum-schema)
-                   (d/with field-schema))]
+                   :db-after
+                   (d/with field-schema)
+                   :db-after)]
         ; Should not throw
         (-> specs
             semantic-spec-coll->semantic-ast
