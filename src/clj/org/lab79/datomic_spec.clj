@@ -315,13 +315,16 @@
         :ret (s/coll-of :datomic/field-schema))
 (defn- semantic-ast->datomic-field-schemas
   [ast tempid-factory]
-  (flatten
-    (for [[_ intfc] (:interface.ast/interfaces ast)]
-      (for [[_ field] (:interface.ast.interface/fields intfc)]
-        (assoc
-          (filter-kv (fn [k _] (contains? datomic-schema-keys k)) field)
-          :db/id (tempid-factory :db.part/db)
-                      :db.install/_attribute :db.part/db)))))
+  (map #(assoc % :db/id (tempid-factory :db.part/db))
+       ; distinct because an interface may share the same attribute, as is the case with
+       ; :datomic-spec/interfaces
+       (distinct
+         (flatten
+           (for [[_ intfc] (:interface.ast/interfaces ast)]
+             (for [[_ field] (:interface.ast.interface/fields intfc)]
+               (assoc
+                 (filter-kv (fn [k _] (contains? datomic-schema-keys k)) field)
+                 :db.install/_attribute :db.part/db)))))))
 
 (s/fdef semantic-ast->datomic-partition-schemas
         :args (s/cat :ast :interface/ast
