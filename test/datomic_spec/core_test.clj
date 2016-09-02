@@ -853,7 +853,7 @@
             (register-specs-for-ast! d/tempid db-id?))))
     (testing "generating clojure.spec definitions with custom generators"
       (let [specs [{:interface.def/name :interface/polyglot
-                    :interface.def/fields {:polyglot/languages [:string]}
+                    :interface.def/fields {:polyglot/languages [[:string]]}
                     :interface.def/identify-via ['[?e :polyglot/languages]]}
                    {:interface.def/name :interface/translator
                     :interface.def/fields {:translator/id [:string]}
@@ -872,10 +872,10 @@
             {:datomic/keys [partition-schema enum-schema field-schema]} (-> specs
                                                                             semantic-spec-coll->semantic-ast
                                                                             (semantic-ast->datomic-schemas d/tempid))
-            _ @(d/transact c partition-schema)
-            _ @(d/transact c enum-schema)
-            _ @(d/transact c field-schema)
-            db (d/db c)]
+            db (-> (d/db c)
+                   (d/with partition-schema)
+                   (d/with enum-schema)
+                   (d/with field-schema))]
         ; Should not throw
         (-> specs
             semantic-spec-coll->semantic-ast
