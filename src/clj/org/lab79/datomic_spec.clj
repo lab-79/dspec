@@ -61,7 +61,9 @@
 (def ^:private datalog-pair-spec (s/tuple #{'?e} keyword?))
 (def ^:private datalog-triplet-spec (s/tuple #{'?e} keyword? any?))
 (s/def :datalog/clause (s/or :datalog/pair datalog-pair-spec
-                             :datalog/triplet datalog-triplet-spec))
+                             :datalog/triplet datalog-triplet-spec
+                             ; TODO Do better than any?
+                             :datalog/complex any?))
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
                                          :identify-via/datalog-clause (s/coll-of :datalog/clause :kind vector?)))
 (s/def :db/part (s/with-gen (s/and keyword? #(= (namespace %) "db.part"))
