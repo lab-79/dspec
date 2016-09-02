@@ -633,8 +633,8 @@
       (if custom-generator-factory
         `(s/def ~ident (s/with-gen (s/coll-of ~pred :kind set?)
                                    ~(case (arity custom-generator-factory)
-                                      1 (let [member-gen (eval (macroexpand `(s/gen ~pred)))]
-                                          #(custom-generator-factory member-gen))
+                                      1 (let [member-gen `(s/gen ~pred)]
+                                          #(custom-generator-factory (eval (macroexpand member-gen))))
                                       custom-generator-factory)))
         (case type
           :string `(s/def ~ident
