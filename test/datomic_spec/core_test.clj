@@ -11,6 +11,27 @@
             )
   (:import (datomic.db DbId)))
 
+(defn- ensure-keys-gen
+  "Returns a generator factory that ensures every generated map has at least
+  the keys specified by `field-keys`."
+  [& field-keys]
+  (fn [keys-spec-macro]
+    (let [{req-keys :req optional-keys :opt} (apply hash-map (rest keys-spec-macro))
+          ensure-keys (set field-keys)
+          ensured-keys (into ensure-keys req-keys)
+          opt-keys (clojure.set/difference (set optional-keys) ensure-keys)
+          egen (fn [k] [k `(s/gen ~k)])
+          ogen (fn [k] [k `(gen/delay (s/gen ~k))])]
+      `(gen/bind (gen/choose 0 (count ~opt-keys))
+                 (fn [~'lower]
+                   (let [~'ensures ~(set (map egen ensured-keys))
+                         ~'opts ~(set (map ogen opt-keys))
+                         ~'args (concat (seq ~'ensures) (when (seq ~'opts) (shuffle (seq ~'opts))))]
+                     (->> ~'args
+                          (take (+ ~'lower (count ~'ensures)))
+                          (apply clojure.core/concat)
+                          (apply gen/hash-map))))))))
+
 ; Instrument all our functions in datomic-spec
 (-> (stest/enumerate-namespace 'org.lab79.datomic-spec)
     stest/instrument)
@@ -781,7 +802,7 @@
               (is (= (:datomic-spec/interfaces child) #{:interface/child :interface/mother :interface/father}))
               (is (= (:datomic-spec/interfaces mother) #{:interface/mother}))
               (is (= (:datomic-spec/interfaces father) #{:interface/father}))))
-          (testing "an interface id'ed via :datomic-spec/interfaces inheritiing from an interface id'ed via attributes"
+          (testing "an interface id'ed via :datomic-spec/interfaces inheriting from an interface id'ed via attributes"
             (let [parent-spec {:interface.def/name :interface/parent-id-via-attr
                                :interface.def/fields {:parent/name [:string :required]}
                                :interface.def/identify-via ['[?e :parent/name]]}
@@ -796,7 +817,7 @@
                 (is (= #{:interface/self-labeling-child-of-parent-id-via-attr}
                        (:datomic-spec/interfaces child)))
                 (is (contains? child :parent/name)))))
-          (testing "an interface id'ed via attributes inheritiing from an interface id'ed via :datomic-spec/interfaces"
+          (testing "an interface id'ed via attributes inheriting from an interface id'ed via :datomic-spec/interfaces"
             (let [parent-spec {:interface.def/name :interface/parent-id-via-datomic-spec-interfaces
                                :interface.def/fields {}
                                :interface.def/identify-via :datomic-spec/interfaces
@@ -829,7 +850,42 @@
         ; This should not throw
         (-> specs
             semantic-spec-coll->semantic-ast
-            (register-specs-for-ast! d/tempid db-id?))))))
+            (register-specs-for-ast! d/tempid db-id?))))
+    (testing "generating clojure.spec definitions with custom generators"
+      (let [specs [{:interface.def/name :interface/polyglot
+                    :interface.def/fields {:polyglot/languages [:string]}
+                    :interface.def/identify-via ['[?e :polyglot/languages]]}
+                   {:interface.def/name :interface/translator
+                    :interface.def/fields {:translator/id [:string]}
+                    :interface.def/inherits [:interface/polyglot]
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}]
+            custom-gens-1 {:polyglot/languages #(gen/set (s/gen #{"Cantonese"
+                                                                  "English"
+                                                                  "Japanese"
+                                                                  "Mandarin"
+                                                                  "Spanish"}))}
+            custom-gens-2 {:interface/translator (ensure-keys-gen :translator/id)}
+            db-uri "datomic:mem://custom-generators"
+            _ (d/create-database db-uri)
+            c (d/connect db-uri)
+            {:datomic/keys [partition-schema enum-schema field-schema]} (-> specs
+                                                                            semantic-spec-coll->semantic-ast
+                                                                            (semantic-ast->datomic-schemas d/tempid))
+            _ @(d/transact c partition-schema)
+            _ @(d/transact c enum-schema)
+            _ @(d/transact c field-schema)
+            db (d/db c)]
+        ; Should not throw
+        (-> specs
+            semantic-spec-coll->semantic-ast
+            (register-generative-specs-for-ast! custom-gens-1 d/tempid db-id?))
+        (d/with db (gen/sample (s/gen :interface/translator)))
+        ; Should not throw
+        (-> specs
+            semantic-spec-coll->semantic-ast
+            (register-generative-specs-for-ast! custom-gens-2 d/tempid db-id?))
+        (d/with db (gen/sample (s/gen :interface/translator)))))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
