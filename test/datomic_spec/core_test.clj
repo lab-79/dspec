@@ -672,6 +672,19 @@
           (is (thrown-with-msg? clojure.lang.ExceptionInfo
                                 #"did not conform to spec:"
                                 (semantic-spec-coll->semantic-ast specs))))))
+    (testing "interfaces with circular dependencies"
+      (let [specs [{:interface.def/name :interface/a-points-to-b
+                    :interface.def/fields {:a/b [:interface/b-points-to-a]}
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}
+                   {:interface.def/name :interface/b-points-to-a
+                    :interface.def/fields {:b/a [:interface/a-points-to-b]}
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}]]
+        ; Should not throw
+        (-> specs
+            semantic-spec-coll->semantic-ast
+            (register-specs-for-ast! d/tempid db-id?))))
     (testing "with inheritance"
       (let [specs family-semantic-specs]
         (testing "semantic-spec-coll->semantic-ast"
