@@ -563,6 +563,22 @@
   [type]
   (not (contains? NATIVE-TYPES type)))
 
+(s/fdef add-field-refs-to-deps-graph
+        :args (s/cat :interface-name keyword?
+                     :fields (s/coll-of :interface.ast/field :kind set?)
+                     :deps-graph :clojure.spec/deps-graph)
+        :ret :clojure.spec/deps-graph)
+(defn- add-field-refs-to-deps-graph
+  [interface-name fields deps-graph]
+  (reduce
+    (fn [deps-graph field]
+      (let [{:keys [interface.ast.field/type]} field]
+        (if (and (interface-type? type) (not= interface-name type))
+          (ssdep/depend deps-graph (:db/ident field) type)
+          deps-graph)))
+    deps-graph
+    fields))
+
 (s/fdef add-interface-to-deps-graph
         :args (s/cat :ast :interface/ast
                      :ast/interface :interface.ast/interface
@@ -577,8 +593,9 @@
         ref-deps (->> all-fields
                       (map :interface.ast.field/type)
                       (filter #(and (interface-type? %) (not= name %))))
-        dependencies (concat inherits field-deps ref-deps)]
-    (reduce #(ssdep/depend %1 name %2) deps-graph dependencies)))
+        dependencies (concat inherits field-deps)
+        deps-graph' (add-field-refs-to-deps-graph name all-fields deps-graph)]
+    (reduce #(ssdep/depend %1 name %2) deps-graph' dependencies)))
 
 (s/fdef field->clojure-spec-macro
         :arg (s/cat :field :interface.ast/field
