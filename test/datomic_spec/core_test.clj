@@ -899,7 +899,17 @@
                       :interface.def/identify-via :datomic-spec/interfaces
                       :interface.def/identifying-enum-part :db.part/user}]
               custom-gens {:carpenter/tools (fn [member-generator]
-                                              (gen/set member-generator {:min-elements 1 :max-elements 1}))}]
+                                              (gen/set member-generator {:min-elements 1 :max-elements 1}))}
+              {:datomic/keys [partition-schema enum-schema field-schema]} (-> specs
+                                                                              semantic-spec-coll->semantic-ast
+                                                                              (semantic-ast->datomic-schemas d/tempid))
+              db (-> (d/db c)
+                     (d/with partition-schema)
+                     :db-after
+                     (d/with enum-schema)
+                     :db-after
+                     (d/with field-schema)
+                     :db-after)]
           ; Should not throw
           (-> specs
               semantic-spec-coll->semantic-ast
