@@ -751,8 +751,17 @@
             ;                                                  :person/personality :happy})]
             ;  (is (= #{:db/id :person/personality} (set (keys conformed-mom)))))
             ))
+        (testing "generating Datomic schemas"
+          (let [ast (semantic-spec-coll->semantic-ast specs)
+                {:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+                db-uri "datomic:mem://test-mother-father-child"
+                _ (d/create-database db-uri)
+                c (d/connect db-uri)]
+            (is (map? @(d/transact c partition-schema)))
+            (is (map? @(d/transact c enum-schema)))
+            (is (map? @(d/transact c field-schema)))))
         (testing "schemas generate entities with correct :datomic-spec/interfaces"
-          (testing "with an inheritane of interfaces strictly using :datomic-spec/interfaces"
+          (testing "with an inheritance of interfaces strictly using :datomic-spec/interfaces"
             (let [child (gen/generate (s/gen :interface/child))
                   mother (gen/generate (s/gen :interface/mother))
                   father (gen/generate (s/gen :interface/father))]
