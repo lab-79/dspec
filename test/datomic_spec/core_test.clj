@@ -888,7 +888,23 @@
         (-> specs
             semantic-spec-coll->semantic-ast
             (register-generative-specs-for-ast! custom-gens-2 d/tempid db-id?))
-        (d/with db (gen/sample (s/gen :interface/translator)))))))
+        (d/with db (gen/sample (s/gen :interface/translator)))
+
+        (let [specs [{:interface.def/name :interface/carpenter
+                      :interface.def/fields {:carpenter/tools [[:interface/tool]]}
+                      :interface.def/identify-via :datomic-spec/interfaces
+                      :interface.def/identifying-enum-part :db.part/user}
+                     {:interface.def/name :interface/tool
+                      :interface.def/fields {}
+                      :interface.def/identify-via :datomic-spec/interfaces
+                      :interface.def/identifying-enum-part :db.part/user}]
+              custom-gens {:carpenter/tools (fn [member-generator]
+                                              (gen/set member-generator {:min-elements 1 :max-elements 1}))}]
+          ; Should not throw
+          (-> specs
+              semantic-spec-coll->semantic-ast
+              (register-generative-specs-for-ast! custom-gens d/tempid db-id?))
+          (d/with db (gen/sample (s/gen :interface/carpenter))))))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
