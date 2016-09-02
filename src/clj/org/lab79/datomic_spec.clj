@@ -543,10 +543,10 @@
      (if inherited-custom-generators?
        `(s/with-gen ~spec
                     #(gen/fmap
-                      (if identify-via-datomic-spec-interfaces?
-                        (fn [~'hashes-to-combine]
-                          (apply merge (conj ~'hashes-to-combine {:datomic-spec/interfaces ~all-my-interfaces})))
-                        (partial apply merge))
+                      ~(if identify-via-datomic-spec-interfaces?
+                         `(fn [~'hashes-to-combine]
+                            (apply merge (conj ~'hashes-to-combine {:datomic-spec/interfaces ~all-my-interfaces})))
+                         '(partial apply merge))
                       ~(cons 'clojure.spec.gen/tuple
                              (cons (custom-generator-factory base-gen-spec)
                                    (map (fn [x] `(s/gen ~x)) all-inherited)))))
