@@ -936,3 +936,26 @@
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/child :interface/mother :interface/father})))
   )
+
+(let [gen-3-specs [{:interface.def/name :interface/gen-3-grandparent
+                    :interface.def/fields {}
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}
+                   {:interface.def/name :interface/gen-3-parent
+                    :interface.def/fields {}
+                    :interface.def/inherits [:interface/gen-3-grandparent]
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}
+                   {:interface.def/name :interface/gen-3-grandchild
+                    :interface.def/fields {}
+                    :interface.def/inherits [:interface/gen-3-parent]
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}]]
+  (-> gen-3-specs
+      semantic-spec-coll->semantic-ast
+      (register-specs-for-ast! d/tempid db-id?))
+  (defspec grandchild-should-self-label-with-all-transitive-inherited-interfaces
+           100
+           (prop/for-all (entity (s/gen :interface/gen-3-grandchild))
+                         (= (:datomic-spec/interfaces entity)
+                            #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
