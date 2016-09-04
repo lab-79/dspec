@@ -162,6 +162,33 @@
         :args (s/cat :field-def (s/spec :interface.def/field) :field-name keyword?)
         :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
 (defn- field-def->ast-field&enum-map
+  "Given the field definition portion of an interface defintion, return the ast representation of the field and the
+  ast map representation of any enums that may be associated with the field.
+
+  Example:
+  Consider the following interface definition:
+
+  ```
+  {:interface.def/name :interface/example
+   :interface.def/fields {:example/color [:enum #{:green :blue} :required \"A keyword field\"]}
+   :interface.def/identify-via [['?e :example/kw]]}
+  ```
+
+  The `field-name` is `:example/kw`.
+  The `field-def` is `[:enum #{:green :blue} :required \"A keyword field\"]`.
+  The return value is:
+
+  ```
+  {:interface.ast/field {:db/cardinality :db.cardinality/one
+                         :db/valueType :db.type/ref
+                         :interface.ast.field/type :enum
+                         :interface.ast.field/possible-enum-vals #{:green :blue}
+                         :interface.ast.field/required true
+                         :db/doc \"A keyword field\"}
+   :interface.ast/enum-map {:green {:db/ident :green}
+                            :blue {:db/ident :blue}}}
+  ```
+  "
   [field-def field-name]
   (let [field-tags (s/conform :interface.def/field field-def)
         parsed {:interface.ast/field {:db/ident field-name}
