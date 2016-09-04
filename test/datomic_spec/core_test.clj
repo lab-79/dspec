@@ -11,6 +11,13 @@
             )
   (:import (datomic.db DbId)))
 
+(defn- test-db []
+  (let [db-uri (str "datomic:mem://" (gensym))]
+    (d/create-database db-uri)
+    (let [conn (d/connect db-uri)
+          db (d/db conn)]
+      {:conn conn :db db :delete-db #(d/delete-database db-uri)})))
+
 (defn- ensure-keys-gen
   "Returns a generator factory that ensures every generated map has at least
   the keys specified by `field-keys`."
@@ -87,12 +94,9 @@
                       :db.install/_partition :db.part/db}}
                    (set (map #(dissoc % :db/id) partition-schema))))
             (testing "writing interface enums to the correct partitions"
-              (let [db-uri "datomic:mem://test"]
-                (d/create-database db-uri)
+              (let [{:keys [db delete-db]} (test-db)]
                 (register-specs-for-ast! (semantic-spec->semantic-ast spec) d/tempid db-id?)
-                (let [conn (d/connect db-uri)
-                      db (d/db conn)
-                      {:keys [db-after]} (-> db
+                (let [{:keys [db-after]} (-> db
                                              (d/with partition-schema)
                                              :db-after
                                              (d/with (concat enum-schema field-schema))
@@ -104,7 +108,8 @@
                                     db-after :interface/eponym)
                       partition-eid (d/part enum-eid)
                       partition-name (get-partition-name db-after partition-eid)]
-                  (is (= partition-name :db.part/test)))))))))
+                  (is (= partition-name :db.part/test))
+                  (delete-db))))))))
     (testing "identifying its type via existence of an attribute"
       (let [spec {:interface.def/name :interface/id-by-attr
                   :interface.def/fields {:obj/identifying-attr [:keyword]}
@@ -788,12 +793,11 @@
         (testing "generating Datomic schemas"
           (let [ast (semantic-spec-coll->semantic-ast specs)
                 {:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
-                db-uri "datomic:mem://test-mother-father-child"
-                _ (d/create-database db-uri)
-                c (d/connect db-uri)]
-            (is (map? @(d/transact c partition-schema)))
-            (is (map? @(d/transact c enum-schema)))
-            (is (map? @(d/transact c field-schema)))))
+                {:keys [conn delete-db]} (test-db)]
+            (is (map? @(d/transact conn partition-schema)))
+            (is (map? @(d/transact conn enum-schema)))
+            (is (map? @(d/transact conn field-schema)))
+            (delete-db)))
         (testing "schemas generate entities with correct :datomic-spec/interfaces"
           (testing "with an inheritance of interfaces strictly using :datomic-spec/interfaces"
             (let [child (gen/generate (s/gen :interface/child))
@@ -866,13 +870,11 @@
                                                                   "Mandarin"
                                                                   "Spanish"}))}
             custom-gens-2 {:interface/translator (ensure-keys-gen :translator/id)}
-            db-uri "datomic:mem://custom-generators"
-            _ (d/create-database db-uri)
-            c (d/connect db-uri)
+            {:keys [conn delete-db]} (test-db)
             {:datomic/keys [partition-schema enum-schema field-schema]} (-> specs
                                                                             semantic-spec-coll->semantic-ast
                                                                             (semantic-ast->datomic-schemas d/tempid))
-            db (-> (d/db c)
+            db (-> (d/db conn)
                    (d/with partition-schema)
                    :db-after
                    (d/with enum-schema)
@@ -903,7 +905,7 @@
               {:datomic/keys [partition-schema enum-schema field-schema]} (-> specs
                                                                               semantic-spec-coll->semantic-ast
                                                                               (semantic-ast->datomic-schemas d/tempid))
-              db (-> (d/db c)
+              db (-> (d/db conn)
                      (d/with partition-schema)
                      :db-after
                      (d/with enum-schema)
@@ -914,7 +916,9 @@
           (-> specs
               semantic-spec-coll->semantic-ast
               (register-specs-for-ast! custom-gens d/tempid db-id?))
-          (d/with db (gen/sample (s/gen :interface/carpenter))))))))
+          (d/with db (gen/sample (s/gen :interface/carpenter))))
+        (delete-db)
+        ))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
