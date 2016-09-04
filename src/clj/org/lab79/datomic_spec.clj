@@ -420,18 +420,8 @@
 ; be used in defining and registering the appropriate clojure.spec spec for
 ; the field.
 (def ^:private ast-field-type->predicate
-  {:keyword keyword?
-   :string string?
-   :boolean boolean?
-   :long number?
-   :bigint integer?
-   :float float?
-   :double float?
-   :bigdec integer?
-   :instant inst?
-   :uuid uuid?
-   :uri uri?
-   :bytes bytes?})
+  {:keyword keyword?, :string string?, :boolean boolean?, :long number?, :bigint integer?, :float float?,
+   :double float?, :bigdec integer?, :instant inst?, :uuid uuid?, :uri uri?, :bytes bytes?})
 
 ; TODO Get more specific than any?
 (s/def :clojure.spec/deps-graph any?)
@@ -668,7 +658,6 @@
                      :db-id? (s/fspec :args (s/cat :x any?)
                                       :ret boolean?)))
 (defn register-specs-for-ast!
-  "Given an entire interface AST, register all clojure.spec specs that
-  should be associated with the AST."
+  "Given an entire interface AST, register all clojure.spec specs that should be associated with the AST."
   [ast tempid-factory db-id?]
   (register-generative-specs-for-ast! ast {} tempid-factory db-id?))
