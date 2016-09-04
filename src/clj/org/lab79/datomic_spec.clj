@@ -509,31 +509,23 @@
          spec (if (and identify-via-datomic-spec-interfaces? (seq all-my-self-labeling-interfaces))
                 `(s/and ~base-spec #(clojure.set/subset? ~all-my-self-labeling-interfaces (:datomic-spec/interfaces %)))
                 base-spec)]
-     (if inherited-custom-generators?
-       `(s/with-gen ~spec
-                    #(gen/fmap
-                      ~(if identify-via-datomic-spec-interfaces?
-                         `(fn [~'hashes-to-combine]
-                            (apply merge (conj ~'hashes-to-combine {:datomic-spec/interfaces ~all-my-self-labeling-interfaces})))
-                         '(partial apply merge))
-                      ~(cons `gen/tuple
-                             (cond->> (map (fn [x] `(s/gen ~x)) all-inherited)
-                                      custom-generator-factory (cons (custom-generator-factory base-gen-spec))
-                                      (not custom-generator-factory) (cons `(s/gen ~base-gen-spec))))))
-       (if (and (not custom-generator-factory) (not identify-via-datomic-spec-interfaces?))
-         spec
-         `(s/with-gen ~spec
-                      ~(if (and custom-generator-factory
-                                (not identify-via-datomic-spec-interfaces?))
-                         `(fn [] ~(custom-generator-factory spec))
-
-                         ; (or (and !custom-generator-factory identify-via-datomic-specs)
-                         ;     (and  custom-generator-factory identify-via-datomic-specs)
-                         `#(gen/fmap
-                            (fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~all-my-self-labeling-interfaces}))
-                            ~(if custom-generator-factory
-                               (custom-generator-factory base-gen-spec)
-                               `(s/gen ~base-gen-spec))))))))))
+     (if (and (not inherited-custom-generators?)
+              (not identify-via-datomic-spec-interfaces?)
+              (not custom-generator-factory))
+       spec
+       (let [generator-factory (if-not (or identify-via-datomic-spec-interfaces? inherited-custom-generators?)
+                                 `(fn [] ~(custom-generator-factory spec))
+                                 `#(gen/fmap
+                                    ~(if identify-via-datomic-spec-interfaces?
+                                       `(fn [~'objects-to-combine]
+                                          (apply merge (conj ~'objects-to-combine
+                                                             {:datomic-spec/interfaces ~all-my-self-labeling-interfaces})))
+                                       '(partial apply merge))
+                                    ~(cons `gen/tuple
+                                           (cond->> (map (fn [x] `(s/gen ~x)) all-inherited)
+                                                    custom-generator-factory (cons (custom-generator-factory base-gen-spec))
+                                                    (not custom-generator-factory) (cons `(s/gen ~base-gen-spec))))))]
+         `(s/with-gen ~spec ~generator-factory))))))
 
 (def ^:private NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
