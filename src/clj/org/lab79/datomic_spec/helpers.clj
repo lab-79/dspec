@@ -1,8 +1,7 @@
 (ns org.lab79.datomic-spec.helpers
   (:require [org.lab79.datomic-spec :refer [semantic-spec-coll->datomic-schemas
                                             semantic-spec-coll->semantic-ast
-                                            register-specs-for-ast!
-                                            register-generative-specs-for-ast!]]))
+                                            register-specs-for-ast!]]))
 
 (defn specs->datomic
   [specs]
@@ -23,4 +22,4 @@
   [specs generators]
   (-> specs
       semantic-spec-coll->semantic-ast
-      (register-generative-specs-for-ast! generators)))
+      (register-specs-for-ast! generators)))
