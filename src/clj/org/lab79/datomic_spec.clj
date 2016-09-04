@@ -158,10 +158,10 @@
 
 (s/def :interface/field-def-parser
   (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
-(s/fdef parse-field-def
+(s/fdef field-def->ast-field&enum-map
         :args (s/cat :field-def (s/spec :interface.def/field) :field-name keyword?)
         :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
-(defn- parse-field-def
+(defn- field-def->ast-field&enum-map
   [field-def field-name]
   (let [field-tags (s/conform :interface.def/field field-def)
         parsed {:interface.ast/field {:db/ident field-name}
@@ -256,7 +256,7 @@
   (let [{:interface.def/keys [name fields inherits identify-via identifying-enum-part]} spec
         {:keys [interface-fields enum-map]} (reduce
                                               (fn [parsed [field-name field-spec]]
-                                                (let [{:interface.ast/keys [enum-map field]} (parse-field-def field-spec field-name)]
+                                                (let [{:interface.ast/keys [enum-map field]} (field-def->ast-field&enum-map field-spec field-name)]
                                                   (-> parsed
                                                       (update :enum-map merge enum-map)
                                                       (assoc-in [:interface-fields field-name] field))))
