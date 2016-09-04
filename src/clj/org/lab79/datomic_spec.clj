@@ -478,7 +478,6 @@
                      :gen-map :interface/gen-map
                      :custom-generator-factory (s/? :gen/generator-factory))
         :ret any?)
-; TODO Make sure enums include all-inherited for datomic-spec/interfaces
 (defn- interface->clojure-spec-macros
   "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   ([ast interface-name req-fields opt-fields gen-map]
