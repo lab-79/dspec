@@ -476,57 +476,23 @@
                      :req-fields (s/coll-of :interface.ast/field :kind vector?)
                      :opt-fields (s/coll-of :interface.ast/field :kind vector?)
                      :gen-map :interface/gen-map
-                     :custom-generator-factory (s/? :gen/generator-factory))
+                     :custom-generator-factory (s/? (s/nilable :gen/generator-factory)))
         :ret any?)
 (defn- interface->clojure-spec-macros
   "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   ([ast interface-name req-fields opt-fields gen-map]
-    (let [all-inherited (all-inherited-interface-names ast interface-name)
-          all-my-interfaces (conj all-inherited interface-name)
-
-          ; If an ancestor is identified via an existing attribute instead of via the special attribute
-          ; :datomic-spec/interfaces, then let's be sure that we do not include the name of that ancestor
-          ; in this entity's :datomic-spec/interfaces set of inherited interfaces. This is because:
-          ; 1. There will be no Datomic enum in Datomic associated with the name of the ancestor.
-          ; 2. We can detect that we share the interface of the ancestor via the same way the ancestor knows
-          ;    its interface -- by the existence of an attribute(s) specified by the Datalog query clause in
-          ;    , e.g., `:interface.def/identify-via ['[?e :obj/ids-the-ancestral-interface]]`.
-          all-my-self-labeling-interfaces (set (filter #(contains? (:interface.ast/enum-map ast) %) all-my-interfaces))
-          inherited-custom-generators? (seq (keep gen-map all-inherited))
-          identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
-
-          ; We use distinct here because ancestors might share the same attributes, and a shared attribute
-          ; would appread multiple times here.
-          req-keys (conj (vec (distinct (map :db/ident req-fields))) :db/id)
-          opt-keys (mapv :db/ident opt-fields)
-          base-spec `(s/keys :req ~req-keys, :opt ~opt-keys)
-          ; We remove :datomic-spec/interfaces, so we don't un-necessarily generate them randomly, before we
-          ; over-write them with our own deterministic set of interface keywords.
-          base-gen-spec `(s/keys
-                           :req ~(vec (remove #(= % :datomic-spec/interfaces) req-keys))
-                           :opt ~opt-keys)
-          spec (if (and identify-via-datomic-spec-interfaces? (seq all-inherited))
-                 `(s/and ~base-spec #(clojure.set/subset? ~all-my-self-labeling-interfaces (:datomic-spec/interfaces %)))
-                 base-spec)]
-      (if inherited-custom-generators?
-        `(s/with-gen ~spec
-                     #(gen/fmap
-                       (comp (partial apply merge)
-                             (fn [~'xs] (conj ~'xs ~(if identify-via-datomic-spec-interfaces?
-                                                      {:datomic-spec/interfaces all-my-self-labeling-interfaces}
-                                                      {}))))
-                       ~(cons 'clojure.spec.gen/tuple (map (fn [x] `(s/gen ~x)) all-inherited))))
-        (if-not identify-via-datomic-spec-interfaces?
-          spec
-          `(s/with-gen ~spec
-                       #(gen/fmap
-                         (comp (partial apply merge)
-                               (fn [~'xs] (conj ~'xs {:datomic-spec/interfaces ~all-my-self-labeling-interfaces})))
-                         (clojure.spec.gen/tuple (s/gen ~base-gen-spec))))))))
-
+    (interface->clojure-spec-macros ast interface-name req-fields opt-fields gen-map nil))
   ([ast interface-name req-fields opt-fields gen-map custom-generator-factory]
    (let [all-inherited (all-inherited-interface-names ast interface-name)
          all-my-interfaces (conj all-inherited interface-name)
+
+         ; If an ancestor is identified via an existing attribute instead of via the special attribute
+         ; :datomic-spec/interfaces, then let's be sure that we do not include the name of that ancestor
+         ; in this entity's :datomic-spec/interfaces set of inherited interfaces. This is because:
+         ; 1. There will be no Datomic enum in Datomic associated with the name of the ancestor.
+         ; 2. We can detect that we share the interface of the ancestor via the same way the ancestor knows
+         ;    its interface -- by the existence of an attribute(s) specified by the Datalog query clause in
+         ;    , e.g., `:interface.def/identify-via ['[?e :obj/ids-the-ancestral-interface]]`.
          all-my-self-labeling-interfaces (set (filter #(contains? (:interface.ast/enum-map ast) %) all-my-interfaces))
          inherited-custom-generators? (seq (keep gen-map all-inherited))
          identify-via-datomic-spec-interfaces? (some #(= (:db/ident %) :datomic-spec/interfaces) req-fields)
@@ -551,15 +517,23 @@
                             (apply merge (conj ~'hashes-to-combine {:datomic-spec/interfaces ~all-my-self-labeling-interfaces})))
                          '(partial apply merge))
                       ~(cons `gen/tuple
-                             (cons (custom-generator-factory base-gen-spec)
-                                   (map (fn [x] `(s/gen ~x)) all-inherited)))))
-       `(s/with-gen ~spec
-                    ~(if-not identify-via-datomic-spec-interfaces?
-                       `(fn []
-                          ~(custom-generator-factory spec))
-                      `#(gen/fmap
-                         (fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~all-my-self-labeling-interfaces}))
-                         ~(custom-generator-factory base-gen-spec))))))))
+                             (cond->> (map (fn [x] `(s/gen ~x)) all-inherited)
+                                      custom-generator-factory (cons (custom-generator-factory base-gen-spec))
+                                      (not custom-generator-factory) (cons `(s/gen ~base-gen-spec))))))
+       (if (and (not custom-generator-factory) (not identify-via-datomic-spec-interfaces?))
+         spec
+         `(s/with-gen ~spec
+                      ~(if (and custom-generator-factory
+                                (not identify-via-datomic-spec-interfaces?))
+                         `(fn [] ~(custom-generator-factory spec))
+
+                         ; (or (and !custom-generator-factory identify-via-datomic-specs)
+                         ;     (and  custom-generator-factory identify-via-datomic-specs)
+                         `#(gen/fmap
+                            (fn [~'obj] (merge ~'obj {:datomic-spec/interfaces ~all-my-self-labeling-interfaces}))
+                            ~(if custom-generator-factory
+                               (custom-generator-factory base-gen-spec)
+                               `(s/gen ~base-gen-spec))))))))))
 
 (def ^:private NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
