@@ -619,38 +619,21 @@
 (defn- field->clojure-spec-macro
   "Returns the clojure.spec macro for the given `field`, with an optional `custom-generator-factory`"
   [field custom-generator-factory]
-  (let [{:keys [; required
-                db/ident
-                interface.ast.field/type
-                db/cardinality
-                ; optional
-                interface.ast.field/possible-enum-vals]} field
-        pred (if possible-enum-vals
-               possible-enum-vals
-               (get ast-field-type->predicate type type))]
-    (case cardinality
-      :db.cardinality/many
-      (if custom-generator-factory
-        `(s/def ~ident (s/with-gen (s/coll-of ~pred :kind set?)
-                                   ~(case (arity custom-generator-factory)
-                                      1 (let [member-gen `(s/gen ~pred)]
-                                          #(custom-generator-factory (eval (macroexpand member-gen))))
-                                      custom-generator-factory)))
-        (case type
-          :string `(s/def ~ident
-                     (s/with-gen (s/coll-of ~pred :kind set?)
-                                 #(gen/set (gen/not-empty (gen/string-alphanumeric)))))
-          `(s/def ~ident (s/coll-of ~pred :kind set?))))
-
-      :db.cardinality/one
-      (if custom-generator-factory
-        `(s/def ~ident (s/with-gen ~pred
-                                   ~#(custom-generator-factory)))
-        (case type
-          :string `(s/def ~ident
-                     (s/with-gen ~pred
-                                 #(gen/not-empty (gen/string-alphanumeric))))
-          `(s/def ~ident ~pred))))))
+  (let [{:db/keys [ident cardinality]
+         :interface.ast.field/keys [type possible-enum-vals]} field
+        single-predicate (if possible-enum-vals
+                           possible-enum-vals
+                           (get ast-field-type->predicate type type))
+        predicate (if (= cardinality :db.cardinality/many)
+                    `(s/coll-of ~single-predicate :kind set?)
+                    single-predicate)
+        generator-factory (if (and custom-generator-factory (= 1 (arity custom-generator-factory)))
+                            (let [member-gen `(s/gen ~single-predicate)]
+                              `#(~custom-generator-factory ~member-gen))
+                            custom-generator-factory)]
+    `(s/def ~ident ~(if generator-factory
+                      `(s/with-gen ~predicate ~generator-factory)
+                      predicate))))
 
 (s/fdef interface->clojure-spec-defs
         :args (s/cat :ast :interface/ast
