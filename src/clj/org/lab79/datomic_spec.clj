@@ -633,31 +633,27 @@
     {:datomic-spec/interfaces `(s/def :datomic-spec/interfaces (s/coll-of keyword? :kind set?))}
     (vals interfaces)))
 
-(s/fdef register-generative-specs-for-ast!
-        :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map
-                     :tempid-factory fn?
-                     ;:tempid-factory tempid-factory-spec
-                     :db-id? (s/fspec :args (s/cat :x any?)
-                                      :ret boolean?)))
-(defn register-generative-specs-for-ast!
-  "Given an entire interface AST and some custom generators for some fields,
-  register all clojure.spec specs that should be associated with the AST."
-  [ast gen-map tempid-factory db-id?]
-  (let [macros (ast->clojure-spec-macros ast gen-map)
-        deps-graph (deps-graph-for-ast ast)]
-    (s/def :db/id
-      (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
-    (doseq [spec-name (ssdep/topo-sort deps-graph)]
-      (eval (macros spec-name)))))
-
 (s/fdef register-specs-for-ast!
-        :args (s/cat :ast :interface/ast
-                     :tempid-factory fn?
-                     ;:tempid-factory tempid-factory-spec
-                     :db-id? (s/fspec :args (s/cat :x any?)
-                                      :ret boolean?)))
+        :args (s/alt :no-gen-map (s/cat :ast :interface/ast
+                                        :tempid-factory fn?
+                                        ;:tempid-factory tempid-factory-spec
+                                        :db-id? (s/fspec :args (s/cat :x any?)
+                                                         :ret boolean?))
+                     :with-gen-map (s/cat :ast :interface/ast
+                                          :gen-map :interface/gen-map
+                                          :tempid-factory fn?
+                                          ;:tempid-factory tempid-factory-spec
+                                          :db-id? (s/fspec :args (s/cat :x any?)
+                                                           :ret boolean?))))
 (defn register-specs-for-ast!
-  "Given an entire interface AST, register all clojure.spec specs that should be associated with the AST."
-  [ast tempid-factory db-id?]
-  (register-generative-specs-for-ast! ast {} tempid-factory db-id?))
+  "Given an entire AST and maybe some custom generators for fields and/or interfaces, register all clojure.spec specs
+  that should be associated with the AST and possible custom generators."
+  ([ast tempid-factory db-id?]
+   (register-specs-for-ast! ast {} tempid-factory db-id?))
+  ([ast gen-map tempid-factory db-id?]
+   (let [macros (ast->clojure-spec-macros ast gen-map)
+         deps-graph (deps-graph-for-ast ast)]
+     (s/def :db/id
+       (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
+     (doseq [spec-name (ssdep/topo-sort deps-graph)]
+       (eval (macros spec-name))))))

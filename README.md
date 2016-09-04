@@ -487,7 +487,7 @@ generate test or sample data.
 
 ```clojure
 (require '[datomic-tools.core :refer [semantic-spec-coll->semantic-ast
-                                      register-generative-specs-for-ast!]])
+                                      register-specs-for-ast!]])
 (require '[clojure.spec.gen :as gen])
 (require '[ccm-om-next.db.gen.util :refer [fn->gen ensure-keys-gen]])
 (require '[faker.name :as fname])
@@ -531,7 +531,7 @@ generate test or sample data.
     ; Register `clojure.spec` specs based off the semantic ast
     ; and based off of custom generators to over-write particular
     ; `clojure.spec` keys.
-    (register-generative-specs-for-ast! generators datomic.api/tempid db-id?))
+    (register-specs-for-ast! generators datomic.api/tempid db-id?))
 
 ; Now that the specs are loaded into our Clojure environment, we
 ; can generated sample data based off of them.

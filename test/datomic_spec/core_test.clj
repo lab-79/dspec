@@ -538,7 +538,7 @@
             (is (= #{:interface/pet} (get-in entity [:entity/pet :datomic-spec/interfaces])))))
         (testing "generating data with overriding generators"
           (let [generators {:pet/name #(s/gen #{"Banana" "Spotty"})}]
-            (register-generative-specs-for-ast! ast generators d/tempid db-id?)
+            (register-specs-for-ast! ast generators d/tempid db-id?)
             (let [generator (s/gen :interface/entity-with-ref)
                   entity (gen/generate generator)]
               (is (contains? #{"Banana" "Spotty"} (get-in entity [:entity/pet :pet/name])))
@@ -882,12 +882,12 @@
         ; Should not throw
         (-> specs
             semantic-spec-coll->semantic-ast
-            (register-generative-specs-for-ast! custom-gens-1 d/tempid db-id?))
+            (register-specs-for-ast! custom-gens-1 d/tempid db-id?))
         (d/with db (gen/sample (s/gen :interface/translator)))
         ; Should not throw
         (-> specs
             semantic-spec-coll->semantic-ast
-            (register-generative-specs-for-ast! custom-gens-2 d/tempid db-id?))
+            (register-specs-for-ast! custom-gens-2 d/tempid db-id?))
         (d/with db (gen/sample (s/gen :interface/translator)))
 
         (let [specs [{:interface.def/name :interface/carpenter
@@ -913,7 +913,7 @@
           ; Should not throw
           (-> specs
               semantic-spec-coll->semantic-ast
-              (register-generative-specs-for-ast! custom-gens d/tempid db-id?))
+              (register-specs-for-ast! custom-gens d/tempid db-id?))
           (d/with db (gen/sample (s/gen :interface/carpenter))))))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
