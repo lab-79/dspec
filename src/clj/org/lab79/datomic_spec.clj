@@ -565,9 +565,6 @@
   (let [{:interface.ast.interface/keys [name inherits]} interface
         all-fields (ast&interface->ast-fields ast interface)
         field-deps (map :db/ident all-fields)
-        ref-deps (->> all-fields
-                      (map :interface.ast.field/type)
-                      (filter #(and (interface-type? %) (not= name %))))
         dependencies (concat inherits field-deps)
         deps-graph' (add-field-refs-to-deps-graph name all-fields deps-graph)]
     (reduce #(if (ssdep/depends? %1 %2 name)
