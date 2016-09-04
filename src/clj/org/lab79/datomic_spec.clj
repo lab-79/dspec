@@ -702,7 +702,7 @@
     (s/def :db/id
       (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
     (doseq [spec-name (ssdep/topo-sort deps-graph)]
-      (eval (macroexpand (macros spec-name))))))
+      (eval (macros spec-name)))))
 
 (s/fdef register-specs-for-ast!
         :args (s/cat :ast :interface/ast
