@@ -665,17 +665,12 @@
     (vals interfaces)))
 
 (s/fdef register-specs-for-ast!
-        :args (s/alt :no-gen-map (s/cat :ast :interface/ast
-                                        :tempid-factory fn?
-                                        ;:tempid-factory tempid-factory-spec
-                                        :db-id? (s/fspec :args (s/cat :x any?)
-                                                         :ret boolean?))
-                     :with-gen-map (s/cat :ast :interface/ast
-                                          :gen-map :interface/gen-map
-                                          :tempid-factory fn?
-                                          ;:tempid-factory tempid-factory-spec
-                                          :db-id? (s/fspec :args (s/cat :x any?)
-                                                           :ret boolean?))))
+        :args (s/cat :ast :interface/ast
+                     :gen-map (s/? :interface/gen-map)
+                     :tempid-factory fn?
+                     ;:tempid-factory tempid-factory-spec
+                     :db-id? (s/fspec :args (s/cat :x any?)
+                                      :ret boolean?)))
 (defn register-specs-for-ast!
   "Given an entire AST and maybe some custom generators for fields and/or interfaces, register all clojure.spec specs
   that should be associated with the AST and possible custom generators."
