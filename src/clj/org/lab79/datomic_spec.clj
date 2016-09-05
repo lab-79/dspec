@@ -360,7 +360,7 @@
 (s/fdef semantic-ast->datomic-partition-schemas
         :args (s/cat :ast :interface/ast
                      :tempid-factory tempid-factory-spec)
-        :ret (s/coll-of :datomic/partition-schema :kind vector?))
+        :ret (s/coll-of :datomic/partition-schema))
 (defn semantic-ast->datomic-partition-schemas
   "Given a semantic AST, generates edn that represents partition datoms to add to the
   Datomic schema. `tempid` will be passed in and will be `datomic.api/tempid`."
@@ -369,9 +369,9 @@
        vals
        (keep :db/part)
        (filter #(not= :db.part/user %))
-       (mapv (fn [part] {:db/id (tempid-factory :db.part/db)
-                         :db/ident part
-                         :db.install/_partition :db.part/db}))))
+       (map (fn [part] {:db/id (tempid-factory :db.part/db)
+                        :db/ident part
+                        :db.install/_partition :db.part/db}))))
 
 (s/fdef semantic-ast->datomic-schemas
         :args (s/cat :ast :interface/ast
