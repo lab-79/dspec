@@ -491,12 +491,12 @@
 ;                                       :ret any?))
 (s/def :gen/generator-factory fn?)
 
-(s/fdef interface->clojure-spec-macros
+(s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?
                      :gen-map :interface/gen-map)
-        :ret any?)
-(defn- interface->clojure-spec-macros
+        :ret (s/keys :req-un [::spec ::generator]))
+(defn- interface->clojure-spec&generator
   "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   [ast interface-name gen-map]
   (let [interface (get-in ast [:interface.ast/interfaces interface-name])
@@ -536,23 +536,24 @@
         spec (if (and identify-via-datomic-spec-interfaces? (seq all-my-self-labeling-interfaces))
                `(s/and ~base-spec #(clojure.set/subset? ~all-my-self-labeling-interfaces (:datomic-spec/interfaces %)))
                base-spec)]
-    (if (and (not inherited-custom-generators?)
-             (not identify-via-datomic-spec-interfaces?)
-             (not custom-generator-factory))
-      spec
-      (let [generator-factory (if-not (or identify-via-datomic-spec-interfaces? inherited-custom-generators?)
-                                `(fn [] ~(custom-generator-factory spec))
-                                `#(gen/fmap
-                                   ~(if identify-via-datomic-spec-interfaces?
-                                      `(fn [~'objects-to-combine]
-                                         (apply merge (conj ~'objects-to-combine
-                                                            {:datomic-spec/interfaces ~all-my-self-labeling-interfaces})))
-                                      '(partial apply merge))
-                                   ~(cons `gen/tuple
-                                          (cond->> (map (fn [x] `(s/gen ~x)) all-inherited)
-                                                   custom-generator-factory (cons (custom-generator-factory base-gen-spec))
-                                                   (not custom-generator-factory) (cons `(s/gen ~base-gen-spec))))))]
-        `(s/with-gen ~spec ~generator-factory)))))
+        (let [generator (if (and (not inherited-custom-generators?)
+                                 (not identify-via-datomic-spec-interfaces?)
+                                 (not custom-generator-factory))
+                          `(s/gen ~spec)
+                          (if-not (or identify-via-datomic-spec-interfaces? inherited-custom-generators?)
+                            (custom-generator-factory spec)
+                            `(gen/fmap
+                               ~(if identify-via-datomic-spec-interfaces?
+                                  `(fn [~'objects-to-combine]
+                                     (apply merge (conj ~'objects-to-combine
+                                                        {:datomic-spec/interfaces ~all-my-self-labeling-interfaces})))
+                                  '(partial apply merge))
+                               ~(cons `gen/tuple
+                                      (cond->> (map (fn [x] `(s/gen ~x)) all-inherited)
+                                               custom-generator-factory (cons (custom-generator-factory base-gen-spec))
+                                               (not custom-generator-factory) (cons `(s/gen ~base-gen-spec)))))))]
+          {:spec spec
+           :generator generator})))
 
 (def ^:private NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
@@ -637,7 +638,12 @@
   [ast interface gen-map]
   (let [{:keys [interface.ast.interface/name]} interface
         all-fields (ast&interface->ast-fields ast interface)
-        interface-only-spec-def {name `(s/def ~name ~(interface->clojure-spec-macros ast name gen-map))}]
+        {:keys [spec generator]} (interface->clojure-spec&generator ast name gen-map)
+        interface-only-spec-def {name `(s/def ~name (s/with-gen ~spec
+                                                      (fn []
+                                                        (gen/such-that
+                                                          #(< 1 (count (keys %)))
+                                                          ~generator))))}]
     (->> all-fields
          (filter #(not= (:db/ident %) :datomic-spec/interfaces))
          (reduce (fn [macros {:keys [db/ident] :as field}]
@@ -669,6 +675,36 @@
     {:datomic-spec/interfaces `(s/def :datomic-spec/interfaces (s/coll-of keyword? :kind set?))}
     (vals interfaces)))
 
+(s/fdef validate-generators-for-likely-such-that-violations!
+        :args (s/cat :ast :interface/ast
+                     :gen-map :interface/gen-map
+                     :deps-graph :clojure.spec/deps-graph))
+(defn- validate-generators-for-likely-such-that-violations!
+  "Our specs are defined implicitly with gen/such-that. We may end up passing in custom generators
+  or defining interfaces that end up generating data that violate the implicit gen/such-that
+  predicates. This function makes it easier to understand what might be causing the gen/such-that
+  violation. Otherwise, we would have no hints as to what might be causing the violations."
+  [ast gen-map deps-graph]
+  (let [interface-name->spec&generator (->> (:interface.ast/interfaces ast)
+                                            keys
+                                            (reduce (fn [out interface-name]
+                                                      (assoc out interface-name (interface->clojure-spec&generator ast interface-name gen-map)))
+                                                    {}))]
+    (doseq [spec-name (ssdep/topo-sort deps-graph)]
+      (if-let [{:keys [spec generator]} (interface-name->spec&generator spec-name)]
+        (let [data (gen/sample (eval generator) 50)]
+          (doseq [datum data]
+            (when-not (s/valid? (eval spec) datum)
+              (s/explain (eval spec) datum))))))))
+
+(s/fdef validate-generators!
+        :args (s/cat :ast :interface/ast
+                     :gen-map :interface/gen-map
+                     :deps-graph :clojure.spec/deps-graph))
+(defn- validate-generators!
+  [ast gen-map deps-graph]
+  (validate-generators-for-likely-such-that-violations! ast gen-map deps-graph))
+
 (s/fdef register-specs-for-ast!
         :args (s/cat :ast :interface/ast
                      :gen-map (s/? :interface/gen-map)
@@ -687,4 +723,5 @@
      (s/def :db/id
        (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
      (doseq [spec-name (ssdep/topo-sort deps-graph)]
-       (eval (macros spec-name))))))
+       (eval (macros spec-name)))
+     (validate-generators! ast gen-map deps-graph))))
