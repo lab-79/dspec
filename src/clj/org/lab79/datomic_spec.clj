@@ -4,7 +4,7 @@
             [clojure.spec.gen :as gen]
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS]]
-            [com.rpl.specter.macros :refer [select]]
+            [com.rpl.specter.macros :refer [select traverse]]
             [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
@@ -341,16 +341,20 @@
         :ret (s/coll-of :datomic/field-schema))
 (defn- semantic-ast->datomic-field-schemas
   [ast tempid-factory]
-  (map #(assoc % :db/id (tempid-factory :db.part/db))
-       ; distinct because an interface may share the same attribute, as is the case with
-       ; :datomic-spec/interfaces
-       (distinct
-         (flatten
-           (for [[_ intfc] (:interface.ast/interfaces ast)]
-             (for [[_ field] (:interface.ast.interface/fields intfc)]
-               (assoc
-                 (filter-kv (fn [k _] (contains? datomic-schema-keys k)) field)
-                 :db.install/_attribute :db.part/db)))))))
+  (->> (traverse [:interface.ast/interfaces MAP-VALS :interface.ast.interface/fields MAP-VALS] ast)
+       (reduce
+         (fn [field-map {:keys [db/ident] :as field-ast}]
+           ; distinct because an interface may share the same attribute, as is the case with
+           ; :datomic-spec/interfaces
+           (if (contains? field-map ident)
+             field-map
+             (assoc field-map
+               ident (as-> field-ast $
+                           (filter-kv (fn [k _] (contains? datomic-schema-keys k)) $)
+                           (assoc $ :db/id (tempid-factory :db.part/db)
+                                    :db.install/_attribute  :db.part/db)))))
+         {})
+       vals))
 
 (s/fdef semantic-ast->datomic-partition-schemas
         :args (s/cat :ast :interface/ast
