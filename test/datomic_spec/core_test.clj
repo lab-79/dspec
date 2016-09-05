@@ -1003,3 +1003,18 @@
            (prop/for-all (entity (s/gen :interface/gen-3-grandchild))
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
+
+(comment
+(let [specs [{:interface.def/name :interface/x->y
+              :interface.def/fields {:x->y/y [:interface/y->x :gen/should-generate]}
+              :interface.def/identify-via [['?e :x->y/y]]}
+             {:interface.def/name :interface/y->x
+              :interface.def/fields {:y->x/x [:interface/x->y :gen/should-generate]}
+              :interface.def/identify-via [['?e :y->x/x]]}]
+      ast (semantic-spec-coll->semantic-ast specs)]
+  (register-specs-for-ast! ast d/tempid db-id?)
+  (defspec circular-interfaces-data-generation
+    10
+    (prop/for-all (entity (s/gen :interface/x->y))
+                  (= (map? entity)))))
+)
