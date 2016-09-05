@@ -54,7 +54,6 @@
                     (contains? % :interface.def/identifying-enum-part))
               (not= (:interface.def/identify-via %) :datomic-spec/interfaces))))
 (s/def :interface.def/name keyword?)
-(s/def :interface.def/fields (s/coll-of :interface.def/field :kind set?))
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
 (s/def :interface.def/field (s/+ :interface.def.field/trait))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
