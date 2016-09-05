@@ -950,6 +950,15 @@
             data (gen/sample (s/gen :interface/carpenter))]
         (d/with db data)))))
 
+(deftest unique-field-with-no-custom-generator-should-throw
+  (let [specs [{:interface.def/name :interface/unique-field-no-generator
+                :interface.def/fields {:obj/unique-field-no-generator [:keyword :db.unique/identity]}
+                :interface.def/identify-via [['?e :obj/unique-field-no-generator]]}]
+        custom-gens {}
+        ast (semantic-spec-coll->semantic-ast specs)]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                          #"You should provide a custom generator to the unique attribute :obj/unique-field-no-generator"
+                          (register-specs-for-ast! ast custom-gens d/tempid db-id?)))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
