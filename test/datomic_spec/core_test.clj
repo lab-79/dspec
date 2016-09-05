@@ -893,7 +893,7 @@
         (d/with db (gen/sample (s/gen :interface/translator)))
 
         (let [specs [{:interface.def/name :interface/carpenter
-                      :interface.def/fields {:carpenter/tools [[:interface/tool]]}
+                      :interface.def/fields {:carpenter/tools [[:interface/tool] :gen/should-generate]}
                       :interface.def/identify-via :datomic-spec/interfaces
                       :interface.def/identifying-enum-part :db.part/user}
                      {:interface.def/name :interface/tool
@@ -916,6 +916,8 @@
           (-> specs
               semantic-spec-coll->semantic-ast
               (register-specs-for-ast! custom-gens d/tempid db-id?))
+          (let [carpenter (gen/generate (s/gen :interface/carpenter))]
+            (is (= 1 (-> carpenter :carpenter/tools count))))
           (d/with db (gen/sample (s/gen :interface/carpenter))))
         (delete-db)
         ))))
