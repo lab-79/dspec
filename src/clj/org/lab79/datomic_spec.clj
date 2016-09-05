@@ -3,8 +3,8 @@
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [com.stuartsierra.dependency :as ssdep]
-            [com.rpl.specter :refer [MAP-VALS]]
-            [com.rpl.specter.macros :refer [select traverse]]
+            [com.rpl.specter :refer [MAP-VALS collect-one]]
+            [com.rpl.specter.macros :refer [select traverse select-first]]
             [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
@@ -697,13 +697,57 @@
             (when-not (s/valid? (eval spec) datum)
               (s/explain (eval spec) datum))))))))
 
+(s/fdef validate-generators-for-likely-unique-violations!
+        :args (s/cat :ast :interface/ast
+                     :gen-map :interface/gen-map ))
+(defn- validate-generators-for-likely-unique-violations!
+  "When we gen/sample a lot of data, we may run the risk of creating two entities with the same value for a :db.unique/identity
+  or :db.unique/value field. In both cases, when we attempt to write the resulting data as datoms to Datomic, we will end up with
+  either:
+  - A :db.error/datoms-conflict exception in the case of two entities with the same :db.unique/identity value trying to write more than
+    one value to a :db.cardinality/one field.
+  - A unique value exception because we are trying to write two entities with the same value to a field that is :db.unique/value.
+
+  This validation function throws an exception to suggest that a custom generator should be provided
+  (via `(register-specs-for-ast ast custom-generators datomic/tempid db-id?)`) for a field that is either `:db.unique/identity` or
+  `:db.unique/value`."
+  [ast gen-map]
+  (let [unique-fields (->> (select [:interface.ast/interfaces
+                                    MAP-VALS
+                                    :interface.ast.interface/fields
+                                    MAP-VALS
+                                    (collect-one :db/ident) (collect-one :interface.ast.field/type)
+                                    :db/unique] ast)
+                           ; The result of this (select ...) will look like
+                           ; `([:some/attribute :uuid :db.unique/ident] [:person/first-name :string nil])`
+
+                           (filter (fn [[_ field-type unique-trait]]
+                                     (and (s/valid? :db/unique unique-trait)
+                                          (not= :uuid field-type))))
+                           ; We only want to consider fields that are flagged
+                           ; with `:db.unique/identity` or `:db.unique/value`.
+                           ; We don't need to consider `:uuid` fields because
+                           ; the default generator likely won't produce
+                           ; conflicting pairs of identical uuid values.
+
+                           (map first)
+                           ; Let's consider only the names of the fields
+                           )]
+    (doseq [field-name unique-fields]
+      (if-not (contains? gen-map field-name)
+        (throw (ex-info (str "You should provide a custom generator to the unique attribute " (str field-name))
+                        {:field (select-first
+                                  [:interface.ast/interfaces MAP-VALS :interface.ast.interface/fields field-name]
+                                  ast)}))))))
+
 (s/fdef validate-generators!
         :args (s/cat :ast :interface/ast
                      :gen-map :interface/gen-map
                      :deps-graph :clojure.spec/deps-graph))
 (defn- validate-generators!
   [ast gen-map deps-graph]
-  (validate-generators-for-likely-such-that-violations! ast gen-map deps-graph))
+  (validate-generators-for-likely-such-that-violations! ast gen-map deps-graph)
+  (validate-generators-for-likely-unique-violations! ast gen-map))
 
 (s/fdef register-specs-for-ast!
         :args (s/cat :ast :interface/ast
