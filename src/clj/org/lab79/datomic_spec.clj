@@ -329,6 +329,7 @@
                      :tempid-factory tempid-factory-spec)
         :ret (s/coll-of :datomic/enum-schema))
 (defn- semantic-ast->datomic-enum-schemas
+  "Convert all enums into Datomic schema enums that we can transact to Datomic."
   [ast tempid-factory]
   (for [[_ enum] (:interface.ast/enum-map ast)]
     (assoc
