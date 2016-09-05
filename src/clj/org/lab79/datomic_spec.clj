@@ -615,9 +615,14 @@
                     `(s/coll-of ~single-predicate :kind set?)
                     single-predicate)
         generator-factory (if (and custom-generator-factory (= 1 (arity custom-generator-factory)))
-                            (let [member-gen `(s/gen ~single-predicate)]
+                            (let [member-gen (if (= :string type)
+                                               `(gen/not-empty (gen/string-alphanumeric))
+                                               `(s/gen ~single-predicate))]
                               `#(~custom-generator-factory ~member-gen))
-                            custom-generator-factory)]
+                            (if (and (= :string type) (nil? custom-generator-factory))
+                              (case cardinality :db.cardinality/one `#(gen/not-empty (gen/string-alphanumeric))
+                                                :db.cardinality/many `#(gen/set (gen/not-empty (gen/string-alphanumeric))))
+                              custom-generator-factory))]
     `(s/def ~ident ~(if generator-factory
                       `(s/with-gen ~predicate ~generator-factory)
                       predicate))))
