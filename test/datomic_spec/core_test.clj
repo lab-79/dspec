@@ -981,6 +981,38 @@
                             #{:interface/child :interface/mother :interface/father})))
   )
 
+(deftest determine-identifying-datalog-clauses-from-interface
+  (testing "for identify-via :datomic-spec/interfaces"
+    (let [specs [{:interface.def/name :interface/obj-id-via-datomic-spec-interfaces
+                  :interface.def/fields {}
+                  :interface.def/identify-via :datomic-spec/interfaces
+                  :interface.def/identifying-enum-part :db.part/user}]
+          ast (semantic-spec-coll->semantic-ast specs)]
+      (is (= [['?e :datomic-spec/interfaces :interface/obj-id-via-datomic-spec-interfaces]]
+             (interface->identifying-datalog-clauses ast :interface/obj-id-via-datomic-spec-interfaces))))
+    (testing "with inheritance should only consider a single interface's identify-via parameters"
+      (let [specs [{:interface.def/name :interface/parent-id-via-datomic-spec-interfaces
+                    :interface.def/fields {}
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}
+                   {:interface.def/name :interface/child-id-via-datomic-spec-interfaces
+                    :interface.def/fields {}
+                    :interface.def/inherits [:interface/parent-id-via-datomic-spec-interfaces]
+                    :interface.def/identify-via :datomic-spec/interfaces
+                    :interface.def/identifying-enum-part :db.part/user}]
+            ast (semantic-spec-coll->semantic-ast specs)]
+        (is (= [['?e :datomic-spec/interfaces :interface/child-id-via-datomic-spec-interfaces]]
+               (interface->identifying-datalog-clauses ast :interface/child-id-via-datomic-spec-interfaces)))
+        (is (= [['?e :datomic-spec/interfaces :interface/parent-id-via-datomic-spec-interfaces]]
+               (interface->identifying-datalog-clauses ast :interface/parent-id-via-datomic-spec-interfaces))))))
+  (testing "for identify-via datalog clauses"
+    (let [specs [{:interface.def/name :interface/obj-id-via-datalog-query
+                  :interface.def/fields {:obj-id-via-datalog-query/name [:string :required]}
+                  :interface.def/identify-via [['?e :obj-id-via-datalog-query/name]]}]
+          ast (semantic-spec-coll->semantic-ast specs)]
+      (is (= [['?e :obj-id-via-datalog-query/name]]
+             (interface->identifying-datalog-clauses ast :interface/obj-id-via-datalog-query))))))
+
 (let [gen-3-specs [{:interface.def/name :interface/gen-3-grandparent
                     :interface.def/fields {}
                     :interface.def/identify-via :datomic-spec/interfaces
