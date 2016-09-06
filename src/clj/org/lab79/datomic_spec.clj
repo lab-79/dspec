@@ -503,10 +503,9 @@
         all-fields (ast&interface->ast-fields ast interface)
         {req-fields true, opt-fields nil
          :or {req-fields [] opt-fields []}} (group-by :interface.ast.field/required all-fields)
-        {gen-fields true} (group-by :gen/should-generate all-fields)
         custom-generator-factory (if-let [custom-generator-factory (get gen-map interface-name)]
                                    custom-generator-factory
-                                   (if (seq gen-fields)
+                                   (if-let [gen-fields (seq (filter :gen/should-generate all-fields))]
                                      (apply ensure-keys-gen (map :db/ident gen-fields))
                                      nil))
 
