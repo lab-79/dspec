@@ -180,6 +180,9 @@ The field flags that come pre-packaged with `datomic-spec` include:
 - `:db/fulltext`
   Results in Datomic schema generation of a Datomic attribute that has
   `:db/fulltext` set to `true`.
+- `:gen/should-generate`
+  Forces the field to be generated -- by, e.g. `clojure.spec.gen/generate`
+  or `clojure.spec.gen/sample` -- even if the field is not `:required`.
 
 #### Relationships between interfaces
 
