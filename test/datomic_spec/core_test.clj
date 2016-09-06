@@ -5,6 +5,7 @@
             [clojure.test.check.properties :as prop]
             [clojure.spec.test :as stest]
             [org.lab79.datomic-spec :refer :all]
+            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [datomic.api :as d]
@@ -22,27 +23,6 @@
     (d/delete-database db-uri)))
 
 (use-fixtures :once setup&teardown-db)
-
-(defn- ensure-keys-gen
-  "Returns a generator factory that ensures every generated map has at least
-  the keys specified by `field-keys`."
-  [& field-keys]
-  (fn [keys-spec-macro]
-    (let [{req-keys :req optional-keys :opt} (apply hash-map (rest keys-spec-macro))
-          ensure-keys (set field-keys)
-          ensured-keys (into ensure-keys req-keys)
-          opt-keys (clojure.set/difference (set optional-keys) ensure-keys)
-          egen (fn [k] [k `(s/gen ~k)])
-          ogen (fn [k] [k `(gen/delay (s/gen ~k))])]
-      `(gen/bind (gen/choose 0 (count ~opt-keys))
-                 (fn [~'lower]
-                   (let [~'ensures ~(set (map egen ensured-keys))
-                         ~'opts ~(set (map ogen opt-keys))
-                         ~'args (concat (seq ~'ensures) (when (seq ~'opts) (shuffle (seq ~'opts))))]
-                     (->> ~'args
-                          (take (+ ~'lower (count ~'ensures)))
-                          (apply clojure.core/concat)
-                          (apply gen/hash-map))))))))
 
 ; Instrument all our functions in datomic-spec
 (-> (stest/enumerate-namespace 'org.lab79.datomic-spec)
