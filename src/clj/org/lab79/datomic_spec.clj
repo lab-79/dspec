@@ -769,11 +769,11 @@
        (eval (macros spec-name)))
      (validate-generators! ast gen-map deps-graph))))
 
-(s/fdef interface->identifying-datalog-clauses
+(s/fdef ast&interface->identifying-datalog-clauses
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?)
         :ret (s/coll-of :datalog/clause :kind vector?))
-(defn interface->identifying-datalog-clauses
+(defn ast&interface->identifying-datalog-clauses
   [ast interface-name]
   (-> ast
       :interface.ast/interfaces
