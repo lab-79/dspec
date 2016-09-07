@@ -683,11 +683,8 @@
   predicates. This function makes it easier to understand what might be causing the gen/such-that
   violation. Otherwise, we would have no hints as to what might be causing the violations."
   [ast gen-map deps-graph]
-  (let [interface-name->spec&generator (->> (:interface.ast/interfaces ast)
-                                            keys
-                                            (reduce (fn [out interface-name]
-                                                      (assoc out interface-name (interface->clojure-spec&generator ast interface-name gen-map)))
-                                                    {}))]
+  (let [interface-name->spec&generator (reduce #(assoc %1 %2 (interface->clojure-spec&generator ast %2 gen-map))
+                                               {} (keys (:interface.ast/interface ast)))]
     (doseq [spec-name (ssdep/topo-sort deps-graph)]
       (if-let [{:keys [spec generator]} (interface-name->spec&generator spec-name)]
         (let [data (gen/sample (eval generator) 50)]
@@ -697,7 +694,7 @@
 
 (s/fdef validate-generators-for-likely-unique-violations!
         :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map ))
+                     :gen-map :interface/gen-map))
 (defn- validate-generators-for-likely-unique-violations!
   "When we gen/sample a lot of data, we may run the risk of creating two entities with the same value for a :db.unique/identity
   or :db.unique/value field. In both cases, when we attempt to write the resulting data as datoms to Datomic, we will end up with
