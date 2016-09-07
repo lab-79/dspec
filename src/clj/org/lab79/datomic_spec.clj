@@ -296,19 +296,19 @@
                 {:name name
                  :fields (cond->
                            interface-fields
-                           (= :datomic-spec/interfaces identify-via) (merge {:datomic-spec/interfaces
-                                                                             {:db/ident :datomic-spec/interfaces
-                                                                              :db/valueType :db.type/ref
-                                                                              :db/index true
-                                                                              :interface.ast.field/type :enum
-                                                                              :interface.ast.field/possible-enum-vals #{name}
-                                                                              :interface.ast.field/required true
-                                                                              :db/cardinality :db.cardinality/many}}))
+                           (= :datomic-spec/interfaces identify-via) (assoc :datomic-spec/interfaces
+                                                                            {:db/ident :datomic-spec/interfaces
+                                                                             :db/valueType :db.type/ref
+                                                                             :db/index true
+                                                                             :db/cardinality :db.cardinality/many
+                                                                             :interface.ast.field/type :enum
+                                                                             :interface.ast.field/possible-enum-vals #{name}
+                                                                             :interface.ast.field/required true}))
                  :inherits (set inherits)
                  :identify-via identify-via'}}
      :interface.ast/enum-map (cond-> enum-map
-                                     (= :datomic-spec/interfaces identify-via) (merge {name {:db/ident name
-                                                                                             :db/part identifying-enum-part}}))}))
+                                     (= :datomic-spec/interfaces identify-via) (assoc name {:db/ident name
+                                                                                            :db/part identifying-enum-part}))}))
 
 
 (s/fdef filter-kv
@@ -646,8 +646,7 @@
     (->> all-fields
          (filter #(not= (:db/ident %) :datomic-spec/interfaces))
          (reduce (fn [macros {:keys [db/ident] :as field}]
-                   (merge macros
-                          {ident (field->clojure-spec-macro field (get gen-map ident))}))
+                   (assoc macros ident (field->clojure-spec-macro field (get gen-map ident))))
                  interface-only-spec-def))))
 
 (s/fdef deps-graph-for-ast
