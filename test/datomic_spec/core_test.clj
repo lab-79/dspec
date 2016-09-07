@@ -8,8 +8,8 @@
             [org.lab79.datomic-spec.gen :refer [ensure-keys-gen]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
-            [datomic.api :as d]
-            )
+            [datomic.api :as d])
+
   (:import (datomic.db DbId)))
 
 (def ^:dynamic *conn* nil)
@@ -88,8 +88,8 @@
                               db :interface/eponym)
                 partition-eid (d/part enum-eid)
                 partition-name (get-partition-name db partition-eid)]
-            (is (= partition-name :db.part/test))))
-        ))))
+            (is (= partition-name :db.part/test))))))))
+
 
 (deftest id-via-attribute
   (let [spec {:interface.def/name :interface/id-by-attr
@@ -786,6 +786,7 @@
         ;                                                  :person/personality :happy})]
         ;  (is (= #{:db/id :person/personality} (set (keys conformed-mom)))))
         )))
+
   (deftest specs-with-inheritance-generating-datomic-schemas
     (let [ast (semantic-spec-coll->semantic-ast specs)
           {:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
@@ -958,8 +959,8 @@
            100
            (prop/for-all [entity (s/gen :interface/child)]
                          (= (:datomic-spec/interfaces entity)
-                            #{:interface/child :interface/mother :interface/father})))
-  )
+                            #{:interface/child :interface/mother :interface/father}))))
+
 
 (deftest determine-identifying-datalog-clauses-from-interface
   (testing "for identify-via :datomic-spec/interfaces"
@@ -1017,16 +1018,15 @@
                             #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
 
 (comment
-(let [specs [{:interface.def/name :interface/x->y
-              :interface.def/fields {:x->y/y [:interface/y->x :gen/should-generate]}
-              :interface.def/identify-via [['?e :x->y/y]]}
-             {:interface.def/name :interface/y->x
-              :interface.def/fields {:y->x/x [:interface/x->y :gen/should-generate]}
-              :interface.def/identify-via [['?e :y->x/x]]}]
-      ast (semantic-spec-coll->semantic-ast specs)]
-  (register-specs-for-ast! ast d/tempid db-id?)
-  (defspec circular-interfaces-data-generation
-    10
-    (prop/for-all (entity (s/gen :interface/x->y))
-                  (= (map? entity)))))
-)
+  (let [specs [{:interface.def/name :interface/x->y
+                :interface.def/fields {:x->y/y [:interface/y->x :gen/should-generate]}
+                :interface.def/identify-via [['?e :x->y/y]]}
+               {:interface.def/name :interface/y->x
+                :interface.def/fields {:y->x/x [:interface/x->y :gen/should-generate]}
+                :interface.def/identify-via [['?e :y->x/x]]}]
+        ast (semantic-spec-coll->semantic-ast specs)]
+    (register-specs-for-ast! ast d/tempid db-id?)
+    (defspec circular-interfaces-data-generation
+             10
+             (prop/for-all (entity (s/gen :interface/x->y))
+                           (= (map? entity))))))
