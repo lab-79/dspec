@@ -51,7 +51,7 @@
          #(contains? % :interface.def/fields)
          #(contains? % :interface.def/identify-via)
          #(or (and (= (:interface.def/identify-via %) :datomic-spec/interfaces)
-                    (contains? % :interface.def/identifying-enum-part))
+                   (contains? % :interface.def/identifying-enum-part))
               (not= (:interface.def/identify-via %) :datomic-spec/interfaces))))
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
