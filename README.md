@@ -50,8 +50,7 @@ As a developer using this library, most of your application of this library
 will be to convert some collection of data interfaces to:
 
 1. To Datomic schema attributes that will be added to the Datomic schema.
-2. To app data datoms in `:db.part/user` (or specified partition).
-3. To validation output that specifies if a vector of interfaces is invalid or
+2. To validation output that specifies if a vector of interfaces is invalid or
    in what ways they are invalid.
 
 Architecturally, we convert all data interfaces into a single intermediate AST
