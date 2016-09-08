@@ -1,4 +1,4 @@
-# datomic-spec
+# dspec
 
 A Clojure library designed to add useful semantics on top of Datomic.
 
@@ -60,9 +60,9 @@ with each other (inheritance, references, etc.). Then our library converts this
 AST to either Datomic schemas, generated app data, or validation output that we
 mentioned above.
 
-### Defining datomic-spec Specs
+### Defining dspec Specs
 
-In `datomic-spec`, our semantic definitions are defined as data.
+In `dspec`, our semantic definitions are defined as data.
 
 ```clojure
 (def user-spec
@@ -159,7 +159,7 @@ the `:required` flag to the field definition:
  :interface.def/identify-via ['[?e :user/username]]}
 ```
 
-The field flags that come pre-packaged with `datomic-spec` include:
+The field flags that come pre-packaged with `dspec` include:
 
 - `:required`
   Means the field should be non-nil. It will generate a `clojure.spec` definition
@@ -480,7 +480,7 @@ This will produce:
   :db/doc "Other"}]
 ```
 
-### Converting datomic-spec Specs to clojure.spec Specs
+### Converting dspec Specs to clojure.spec Specs
 
 Our declarative semantic definitions can be converted to `clojure.spec` specs.
 
@@ -633,7 +633,7 @@ Consider our semantic definition for a user:
 Then, we can convert this to the intermediate AST.
 
 ```clojure
-(require '[org.lab79.datomic-spec.core :refer [ds]])
+(require '[lab79.dspec :refer [ds]])
 (ds/semantic-spec-coll->semantic-ast user-spec)
 ```
 
