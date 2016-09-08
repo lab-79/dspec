@@ -335,7 +335,7 @@ this out. We can leverage attributes to identify entities in one of two ways.
                                   '[?e :automobile/model]]}
     ```
 
-2. Via a special attribute `:interface.def/interfaces` that is a many-cardinality
+2. Via a special attribute `:datomic-spec/interfaces` that is a many-cardinality
    attribute of Datomic enums where an enum value names an interface that the entity
    can be interpreted as.
 
