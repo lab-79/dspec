@@ -1,4 +1,4 @@
-(defproject org.lab79/datomic-spec "0.1.0-SNAPSHOT"
+(defproject lab79/datomic-spec "0.1.0-SNAPSHOT"
   :description "Stronger semantics on top of Datomic, with clojure.spec goodies."
   :url "https://github.com/lab-79/datomic-spec"
   :license {:name "Eclipse Public License"

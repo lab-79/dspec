@@ -1,11 +1,11 @@
-(ns org.lab79.datomic-spec
+(ns lab79.datomic-spec
   (:require [clojure.core.match :refer [match]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS collect-one]]
             [com.rpl.specter.macros :refer [select traverse select-first]]
-            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]))
+            [lab79.datomic-spec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
 (s/fdef arity :args (s/cat :f fn?) :ret boolean?)

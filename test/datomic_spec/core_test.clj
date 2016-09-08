@@ -4,8 +4,8 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
             [clojure.spec.test :as stest]
-            [org.lab79.datomic-spec :refer :all]
-            [org.lab79.datomic-spec.gen :refer [ensure-keys-gen]]
+            [lab79.datomic-spec :refer :all]
+            [lab79.datomic-spec.gen :refer [ensure-keys-gen]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [datomic.api :as d])
@@ -25,7 +25,7 @@
 (use-fixtures :once setup&teardown-db)
 
 ; Instrument all our functions in datomic-spec
-(-> (stest/enumerate-namespace 'org.lab79.datomic-spec)
+(-> (stest/enumerate-namespace 'lab79.datomic-spec)
     stest/instrument)
 
 (def db-id? #(or (integer? %)

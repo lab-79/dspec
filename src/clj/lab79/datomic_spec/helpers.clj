@@ -1,7 +1,7 @@
-(ns org.lab79.datomic-spec.helpers
-  (:require [org.lab79.datomic-spec :refer [semantic-spec-coll->datomic-schemas
-                                            semantic-spec-coll->semantic-ast
-                                            register-specs-for-ast!]]))
+(ns lab79.datomic-spec.helpers
+  (:require [lab79.datomic-spec :refer [semantic-spec-coll->datomic-schemas
+                                        semantic-spec-coll->semantic-ast
+                                        register-specs-for-ast!]]))
 
 (defn specs->datomic
   [specs]
