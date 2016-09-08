@@ -2,6 +2,8 @@
 
 A Clojure library designed to add useful semantics on top of Datomic.
 
+[![Build Status](https://travis-ci.org/lab-79/dspec.svg?branch=master)](https://travis-ci.org/lab-79/dspec)
+
 ## Purpose
 
 Adding additional semantics -- on top of those provided by Datomic --
