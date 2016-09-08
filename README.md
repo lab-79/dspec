@@ -52,6 +52,8 @@ will be to convert some collection of data interfaces to:
 1. To Datomic schema attributes that will be added to the Datomic schema.
 2. To validation output that specifies if a vector of interfaces is invalid or
    in what ways they are invalid.
+3. To `clojure.spec` definitions that we can use to check if a Datomic entity map
+   is invalid and in what ways it is invalid.
 
 Architecturally, we convert all data interfaces into a single intermediate AST
 representing our entire world of interfaces, enums, and their relationships
