@@ -1,4 +1,4 @@
-(ns lab79.datomic-spec.gen
+(ns lab79.dspec.gen
   (:require [clojure.spec :as s]
             [clojure.spec.gen :as gen]))
 

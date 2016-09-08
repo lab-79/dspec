@@ -1,6 +1,6 @@
-(defproject lab79/datomic-spec "0.1.0-SNAPSHOT"
+(defproject lab79/dspec "0.1.0-SNAPSHOT"
   :description "Stronger semantics on top of Datomic, with clojure.spec goodies."
-  :url "https://github.com/lab-79/datomic-spec"
+  :url "https://github.com/lab-79/dspec"
   :license {:name "Eclipse Public License"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :source-paths ["src/clj"]

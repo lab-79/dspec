@@ -1,11 +1,11 @@
-(ns datomic-spec.core-test
+(ns dspec.core-test
   (:require [clojure.test :refer :all]
             [clojure.test.check :as tc]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :as prop]
             [clojure.spec.test :as stest]
-            [lab79.datomic-spec :refer :all]
-            [lab79.datomic-spec.gen :refer [ensure-keys-gen]]
+            [lab79.dspec :refer :all]
+            [lab79.dspec.gen :refer [ensure-keys-gen]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
             [datomic.api :as d])
@@ -24,8 +24,8 @@
 
 (use-fixtures :once setup&teardown-db)
 
-; Instrument all our functions in datomic-spec
-(-> (stest/enumerate-namespace 'lab79.datomic-spec)
+; Instrument all our functions in dspec
+(-> (stest/enumerate-namespace 'lab79.dspec)
     stest/instrument)
 
 (def db-id? #(or (integer? %)
