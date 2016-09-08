@@ -43,24 +43,24 @@ specification.
 
 ## Usage
 
-We adopt a declarative edn specification for defining stronger semantics on top
-of Datomic schemas.
+We adopt a declarative edn specification that we call "interfaces" for defining
+stronger semantics on top of Datomic schemas.
 
 As a developer using this library, most of your application of this library
-will be to convert some collection of specs to:
+will be to convert some collection of data interfaces to:
 
 1. To Datomic schema attributes that will be added to the Datomic schema.
 2. To app data datoms in `:db.part/user` (or specified partition).
-3. To validation output that specifies if a vector of specs is invalid or
+3. To validation output that specifies if a vector of interfaces is invalid or
    in what ways they are invalid.
 
-Architecturally, we convert all specs into a single intermediate AST
+Architecturally, we convert all data interfaces into a single intermediate AST
 representing our entire world of interfaces, enums, and their relationships
 with each other (inheritance, references, etc.). Then our library converts this
 AST to either Datomic schemas, generated app data, or validation output that we
 mentioned above.
 
-### Defining dspec Specs
+### Defining dspec interfaces
 
 In `dspec`, our semantic definitions are defined as data.
 
@@ -76,8 +76,8 @@ In `dspec`, our semantic definitions are defined as data.
    :interface.def/identify-via ['[?e :user/username]]})
 ```
 
-This defines a kind of object named `:interface/user` that has the following
-attributes:
+This defines a data interface named `:interface/user` such that an entity that
+"satisfies" the interface has the following attributes:
 
 - A string attribute named `:user/username` that is required and uniquely
 identifies a given user.
@@ -379,14 +379,14 @@ any information about an entity's intended interfaces after you write it to the 
 An interface definition is not valid unless you specify `:interface.def/identify-via`.
 
 
-### Converting Specs to Datomic Schemas
+### Converting Data Interfaces to Datomic Schemas
 
 Our declarative semantic definitions can be converted to Datomic schema maps.
 
-Consider the spec we first encountered:
+Consider the data interface we first encountered:
 
 ```clojure
-(def user-spec
+(def user-interface
   {:interface.def/name :interface/user
    :interface.def/fields
      {:user/username [:string "A user's username"
@@ -402,7 +402,7 @@ It will also be able to generate the following Datomic attributes.
 ```clojure
 (require '[datomic.api :as d])
 
-(-> user-spec
+(-> user-interface
     semantic-spec->semantic-ast
     (semantic-ast->datomic-schemas d/tempid))
 ```
@@ -442,14 +442,14 @@ You can expect Datomic enum entities to be generated for enum values that you
 specify. For example, consider the following
 
 ```clojure
-(def person-spec
+(def person-interface
   {:interface.def/name :interface/person
    :interface.def/fields
      {:person/gender ["A person's gender"
                       :enum {:person.gender/male "Male"
                              :person.gender/female  "Female"
                              :person.gender/other "Other"}]}})
-(-> person-spec
+(-> person-interface
     semantic-spec->semantic-ast
     (semantic-ast->datomic-schemas d/tempid))
 ```
@@ -480,7 +480,7 @@ This will produce:
   :db/doc "Other"}]
 ```
 
-### Converting dspec Specs to clojure.spec Specs
+### Converting dspec interfaces to clojure.spec definitions
 
 Our declarative semantic definitions can be converted to `clojure.spec` specs.
 
@@ -500,7 +500,7 @@ generate test or sample data.
 (require '[clojure.spec :as s])
 (import '[datomic.db DbId])
 
-(def edn-specs
+(def edn-interfaces
   [{:interface.def/name :interface/person
     :interface.def/fields {:person.id/uuid [:uuid "A uuid we assign to identify the person" :db.unique/identity :required]
                            :person.id/ssn [:string "A person's social security number" :db.unique/value]
@@ -527,9 +527,9 @@ generate test or sample data.
 (def db-id? #(or (integer? %)
                  (instance? datomic.db.DbId %)))
 
-(-> edn-specs
+(-> edn-interfaces
 
-    ; Convert the semantic specs to the intermediate semantic ast
+    ; Convert the semantic data interfaces to the intermediate semantic ast
     ; representation
     semantic-spec-coll->semantic-ast
 
@@ -617,7 +617,7 @@ semantic definitions into a machine-optimized intermediate representation.
 Consider our semantic definition for a user:
 
 ```clojure
-(def user-spec
+(def user-interface
   {:interface.def/name :interface/user
    :interface.def/fields 
      #:user{:username [:string "A user's username"
@@ -634,7 +634,7 @@ Then, we can convert this to the intermediate AST.
 
 ```clojure
 (require '[lab79.dspec :refer [ds]])
-(ds/semantic-spec-coll->semantic-ast user-spec)
+(ds/semantic-spec-coll->semantic-ast user-interface)
 ```
 
 This will generate the following AST.
@@ -669,7 +669,7 @@ This will generate the following AST.
 Let's revisit another example.
 
 ```clojure
-(def person-spec
+(def person-interface
   {:interface.def/name :interface/person
    :interface.def/fields
      {:person/gender ["A person's gender"
@@ -680,7 +680,7 @@ Let's revisit another example.
    :interface.def/identifying-enum-part :db.part/user})
 ```
 
-This semantic spec generates the following AST.
+This semantic data interface generates the following AST.
 
 ```clojure
 {:interface.ast/interfaces
