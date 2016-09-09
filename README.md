@@ -3,6 +3,7 @@
 A Clojure library designed to add useful semantics on top of Datomic.
 
 [![Build Status](https://travis-ci.org/lab-79/dspec.svg?branch=master)](https://travis-ci.org/lab-79/dspec)
+[![Clojars Project](https://img.shields.io/clojars/v/lab79/dspec.svg)](https://clojars.org/lab79/dspec)
 
 ## Purpose
 
@@ -39,6 +40,12 @@ specification.
 8. (Done) Support polymorphism.
 9. Small code base.
 10. Simple design.
+
+## Getting started
+
+Add the following dependency to your `project.clj` file:
+
+[![Clojars Project](https://clojars.org/lab79/dspec/latest-version.svg)](https://clojars.org/lab79/dspec)
 
 
 ## Usage
