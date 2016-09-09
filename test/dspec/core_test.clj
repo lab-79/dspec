@@ -933,9 +933,10 @@
 
 (deftest unique-field-with-no-custom-generator-should-throw
   (let [specs [{:interface.def/name :interface/unique-field-no-generator
-                :interface.def/fields {:obj/unique-field-no-generator [:keyword :db.unique/identity]}
+                :interface.def/fields {:obj/unique-field-no-generator [:keyword :db.unique/identity]
+                                       :obj/another-keyword-field [:keyword]}
                 :interface.def/identify-via [['?e :obj/unique-field-no-generator]]}]
-        custom-gens {}
+        custom-gens {:obj/another-keyword-field #(gen/return :some/kw)}
         ast (semantic-spec-coll->semantic-ast specs)]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo
                           #"You should provide a custom generator to the unique attribute :obj/unique-field-no-generator"
