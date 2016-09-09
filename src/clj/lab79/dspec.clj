@@ -763,7 +763,8 @@
        (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
      (doseq [spec-name (ssdep/topo-sort deps-graph)]
        (eval (macros spec-name)))
-     (validate-generators! ast gen-map deps-graph))))
+     (if-not (empty? gen-map)
+       (validate-generators! ast gen-map deps-graph)))))
 
 (s/fdef ast&interface->identifying-datalog-clauses
         :args (s/cat :ast :interface/ast
