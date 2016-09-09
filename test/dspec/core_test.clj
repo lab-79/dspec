@@ -939,7 +939,9 @@
         ast (semantic-spec-coll->semantic-ast specs)]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo
                           #"You should provide a custom generator to the unique attribute :obj/unique-field-no-generator"
-                          (register-specs-for-ast! ast custom-gens d/tempid db-id?)))))
+                          (register-specs-for-ast! ast custom-gens d/tempid db-id?)))
+    (testing "should not throw when no custom generators are provided with clojure.spec registration"
+      (register-specs-for-ast! ast d/tempid db-id?))))
 
 (let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
