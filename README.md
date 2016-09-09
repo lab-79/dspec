@@ -50,9 +50,10 @@ As a developer using this library, most of your application of this library
 will be to convert some collection of data interfaces to:
 
 1. To Datomic schema attributes that will be added to the Datomic schema.
-2. To app data datoms in `:db.part/user` (or specified partition).
-3. To validation output that specifies if a vector of interfaces is invalid or
+2. To validation output that specifies if a vector of interfaces is invalid or
    in what ways they are invalid.
+3. To `clojure.spec` definitions that we can use to check if a Datomic entity map
+   is invalid and in what ways it is invalid.
 
 Architecturally, we convert all data interfaces into a single intermediate AST
 representing our entire world of interfaces, enums, and their relationships
@@ -334,7 +335,7 @@ this out. We can leverage attributes to identify entities in one of two ways.
                                   '[?e :automobile/model]]}
     ```
 
-2. Via a special attribute `:interface.def/interfaces` that is a many-cardinality
+2. Via a special attribute `:datomic-spec/interfaces` that is a many-cardinality
    attribute of Datomic enums where an enum value names an interface that the entity
    can be interpreted as.
 
