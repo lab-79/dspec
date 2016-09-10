@@ -146,6 +146,9 @@
 
 (s/def :interface.ast.field/possible-enum-vals (s/+ keyword?))
 
+(s/def :interface.ast.field/required boolean?)
+(s/def :gen/should-generate boolean?)
+
 ;
 ; clojure.spec describing the parser data used in translating the
 ; developer-defined interface definitions to the AST form
