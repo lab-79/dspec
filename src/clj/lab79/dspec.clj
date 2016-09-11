@@ -332,7 +332,8 @@
 
 
 (s/fdef filter-kv
-        :args (s/cat :pred fn?
+        :args (s/cat :pred (s/fspec :args (s/cat :key any? :value any?)
+                                    :ret boolean?)
                      :hash-map map?)
         :ret map?)
 (defn- filter-kv
