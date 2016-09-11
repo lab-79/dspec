@@ -147,7 +147,17 @@
                 :db/fulltext
                 :gen/should-generate]))
 
-(s/def :interface.ast.field/type keyword?)
+; Given the AST representation of a field, return the appropriate predicate
+; testing the validity of the field value. These predicates are intended to
+; be used in defining and registering the appropriate clojure.spec spec for
+; the field.
+(def ^:private ast-field-type->predicate
+  {:keyword keyword?, :string string?, :boolean boolean?, :long number?, :bigint integer?, :float float?,
+   :double float?, :bigdec integer?, :instant inst?, :uuid uuid?, :uri uri?, :bytes bytes?})
+
+(s/def :interface.ast.field/type (s/with-gen
+                                   keyword?
+                                   #(s/gen (set (keys ast-field-type->predicate)))))
 
 (s/def :interface.ast.field/possible-enum-vals (s/+ keyword?))
 
@@ -452,15 +462,6 @@
   [specs]
   ; TODO
   (s/valid? (s/+ :interface/def) specs))
-
-
-; Given the AST representation of a field, return the appropriate predicate
-; testing the validity of the field value. These predicates are intended to
-; be used in defining and registering the appropriate clojure.spec spec for
-; the field.
-(def ^:private ast-field-type->predicate
-  {:keyword keyword?, :string string?, :boolean boolean?, :long number?, :bigint integer?, :float float?,
-   :double float?, :bigdec integer?, :instant inst?, :uuid uuid?, :uri uri?, :bytes bytes?})
 
 ; TODO Get more specific than any?
 (s/def :clojure.spec/deps-graph any?)
