@@ -54,12 +54,10 @@
 ;
 
 (s/def :interface/def
-  (s/and #(contains? % :interface.def/name)
-         #(contains? % :interface.def/fields)
-         #(contains? % :interface.def/identify-via)
-         #(or (and (= (:interface.def/identify-via %) :datomic-spec/interfaces)
-                   (contains? % :interface.def/identifying-enum-part))
-              (not= (:interface.def/identify-via %) :datomic-spec/interfaces))))
+  (s/and (s/keys :req [:interface.def/name :interface.def/fields :interface.def/identify-via])
+         (s/or :id-via-dspec-interfaces (s/and #(= (:interface.def/identify-via %) :datomic-spec/interfaces)
+                                               #(contains? % :interface.def/identifying-enum-part))
+               :id-via-attr #(not= (:interface.def/identify-via %) :datomic-spec/interfaces))))
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
 (s/def :interface.def/field (s/+ :interface.def.field/trait))
