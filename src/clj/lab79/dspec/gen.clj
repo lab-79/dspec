@@ -24,17 +24,7 @@
   "Returns a generator factory that ensures every generated map has at least
   the keys specified by `field-keys`."
   [& ensure-keys]
-  (fn [keys-spec-macro]
-    (let [{req-keys :req optional-keys :opt} (apply hash-map (rest keys-spec-macro))
-          optional-keys-to-generate (clojure.set/difference (set optional-keys) (set ensure-keys))
-          optional-for-hash-map (mapv #(vec [% `(gen/delay (s/gen ~%))]) optional-keys-to-generate)
-          ensured-for-hash-map (mapv #(vec [% `(s/gen ~%)]) (into ensure-keys req-keys))]
-      `(gen/bind
-         ; Determine how many optional keys to generate
-         (gen/choose 0 ~(count optional-keys-to-generate))
-         (fn [~'num-optional-keys-to-generate]
-           (let [~'args-in-kv-pairs (concat ~ensured-for-hash-map (shuffle ~optional-for-hash-map))]
-             (->> ~'args-in-kv-pairs
-                  (take (+ ~'num-optional-keys-to-generate ~(count ensured-for-hash-map)))
-                  (apply concat)
-                  (apply gen/hash-map))))))))
+  (fn [base-map-spec-factory]
+    (s/gen (s/merge (base-map-spec-factory)
+                    ; clojure.spec/keys is a macro so it can't take a symbol like `ensure-keys` directly
+                    (eval `(s/keys :req ~ensure-keys))))))
