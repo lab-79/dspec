@@ -8,7 +8,10 @@
             [lab79.dspec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
-(s/fdef arity :args (s/cat :f fn?) :ret boolean?)
+;(s/fdef arity
+;        :args (s/cat :f (s/fspec :args (s/cat :args (s/* any?))
+;                                 :ret any?))
+;        :ret boolean?)
 (defn- arity
   "Returns the arity -- i.e., the number of arguments -- of a function f."
   [f]
