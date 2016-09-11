@@ -534,13 +534,15 @@
       (let [generator (s/gen :interface/entity-with-ref)
             entity (gen/generate generator)]
         (is (contains? entity :entity/pet))
+        (is (contains? (:entity/pet entity) :pet/name))
         (is (string? (get-in entity [:entity/pet :pet/name])))
         (is (= #{:interface/pet} (get-in entity [:entity/pet :datomic-spec/interfaces])))))
     (testing "generating data with overriding generators"
       (let [generators {:pet/name #(s/gen #{"Banana" "Spotty"})}]
-        (register-specs-for-ast! ast generators d/tempid db-id?)
+        (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?)
         (let [generator (s/gen :interface/entity-with-ref)
               entity (gen/generate generator)]
+          (is (contains? (:entity/pet entity) :pet/name))
           (is (contains? #{"Banana" "Spotty"} (get-in entity [:entity/pet :pet/name])))
           (is (= #{:interface/pet} (get-in entity [:entity/pet :datomic-spec/interfaces]))))))))
 
@@ -875,7 +877,7 @@
     (let [ast (semantic-spec-coll->semantic-ast specs)
           custom-gens {:interface/translator (ensure-keys-gen :db/id :translator/id)}]
       ; Should not throw
-      (register-specs-for-ast! ast custom-gens d/tempid db-id?)
+      (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
       (let [{:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
             db (-> (d/db *conn*)
                    (d/with partition-schema)
@@ -894,7 +896,7 @@
                                                               "Spanish"})
                                                      {:min-elements 1 :max-elements 1})}]
       ; Should not throw
-      (register-specs-for-ast! ast custom-gens d/tempid db-id?)
+      (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
       (let [{:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
             db (-> (d/db *conn*)
                    (d/with partition-schema)
@@ -914,10 +916,10 @@
                   :interface.def/identify-via :datomic-spec/interfaces
                   :interface.def/identifying-enum-part :db.part/user}]
           ast (semantic-spec-coll->semantic-ast specs)
-          custom-gens {:carpenter/tools (fn [member-generator]
-                                          (gen/set member-generator {:min-elements 1 :max-elements 1}))}]
+          custom-gens {:carpenter/tools (fn [member-gen-factory]
+                                          (gen/set (member-gen-factory) {:min-elements 1 :max-elements 1}))}]
       ; Should not throw
-      (register-specs-for-ast! ast custom-gens d/tempid db-id?)
+      (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
       (let [carpenter (gen/generate (s/gen :interface/carpenter))]
         (is (= 1 (-> carpenter :carpenter/tools count))))
       (let [{:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
@@ -940,7 +942,7 @@
         ast (semantic-spec-coll->semantic-ast specs)]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo
                           #"You should provide a custom generator to the unique attribute :obj/unique-field-no-generator"
-                          (register-specs-for-ast! ast custom-gens d/tempid db-id?)))
+                          (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)))
     (testing "should not throw when no custom generators are provided with clojure.spec registration"
       (register-specs-for-ast! ast d/tempid db-id?))))
 
@@ -1019,6 +1021,13 @@
            (prop/for-all (entity (s/gen :interface/gen-3-grandchild))
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
+
+;(deftest check-all-fns
+;  (let [fails (->> (stest/enumerate-namespace 'lab79.dspec)
+;                   (mapcat stest/check)
+;                   (filter :failure))]
+;    (println fails)
+;    (is (empty? fails))))
 
 (comment
   (let [specs [{:interface.def/name :interface/x->y
