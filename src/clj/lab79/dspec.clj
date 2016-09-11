@@ -2,6 +2,7 @@
   (:require [clojure.core.match :refer [match]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
+            [clojure.test.check.generators :refer [generator?]]
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS collect-one]]
             [com.rpl.specter.macros :refer [select traverse select-first]]
@@ -106,7 +107,8 @@
 ;
 ; clojure.spec for defining custom generator maps for our fields
 ;
-(s/def :interface/gen-map (s/map-of keyword? :gen/generator-factory))
+(s/def :interface/gen-map (s/map-of keyword? (s/or :no-member-gen-factory :gen/generator-factory
+                                                   :with-member-gen-factory :gen/generator-factory-with-member)))
 
 ;
 ; clojure.spec describing the AST that a dev-defined interface is transformed into
@@ -494,11 +496,11 @@
         {:keys [interface.ast.interface/inherits]} interface]
     (into inherits (mapcat #(all-inherited-interface-names ast %) inherits))))
 
-; TODO Be more specific than any?
-(s/def :gen/member-generator any?)
-;(s/def :gen/generator-factory (s/fspec :args (s/cat :member-generator (s/? :gen/member-generator))
-;                                       :ret any?))
-(s/def :gen/generator-factory fn?)
+(s/def :gen/generator-factory (s/fspec :args (s/cat)
+                                       :ret generator?))
+(s/def :gen/generator-factory-with-member (s/fspec :args (s/cat :member-generator :gen/generator-factory)
+                                                   :ret generator?))
+
 
 (s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
