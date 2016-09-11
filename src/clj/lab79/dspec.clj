@@ -8,6 +8,10 @@
             [lab79.dspec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
+; Commented out until we can figure out how to spec a higher order function
+; whose input function can take on any number or args. Currently, clojure.spec
+; does not apparently support specs to handle functions that can take 0 or
+; non-0 length args, against a function that has 0 arity.
 ;(s/fdef arity
 ;        :args (s/cat :f (s/fspec :args (s/cat :args (s/* any?))
 ;                                 :ret any?))
