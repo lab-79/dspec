@@ -573,7 +573,7 @@
 
 (defn- interface-type?
   [type]
-  (not (contains? NATIVE-TYPES type)))
+  (not (contains? (conj NATIVE-TYPES :enum) type)))
 
 (s/fdef add-field-refs-to-deps-graph
         :args (s/cat :interface-name keyword?
