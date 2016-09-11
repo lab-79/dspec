@@ -506,8 +506,10 @@
 (s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?
-                     :gen-map :interface/gen-map)
-        :ret (s/keys :req-un [::spec ::generator]))
+                     :gen-map (s/map-of keyword? fn?)
+                     ;:gen-map :interface/gen-map
+                     )
+        :ret (s/keys :req-un [::spec ::gen-factory]))
 (defn- interface->clojure-spec&generator
   "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   [ast interface-name gen-map]
@@ -672,9 +674,11 @@
           (ssdep/graph)
           (vals interfaces)))
 
-(s/fdef ast->clojure-spec-macros
+(s/fdef ast->clojure-specs
         :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map)
+                     :gen-map (s/map-of keyword? fn?)
+                     ;:gen-map :interface/gen-map
+                     )
         :ret :clojure.spec/macros)
 (defn- ast->clojure-spec-macros
   "Given the intermediate AST and a mapping of field and interface names to test.check generators, this returns
@@ -687,7 +691,8 @@
 
 (s/fdef validate-generators-for-likely-such-that-violations!
         :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map
+                     :gen-map (s/map-of keyword? fn?)
+                     ;:gen-map :interface/gen-map
                      :deps-graph :clojure.spec/deps-graph))
 (defn- validate-generators-for-likely-such-that-violations!
   "Our specs are defined implicitly with gen/such-that. We may end up passing in custom generators
@@ -706,7 +711,9 @@
 
 (s/fdef validate-generators-for-likely-unique-violations!
         :args (s/cat :ast :interface/ast
-                     :gen-map :interface/gen-map))
+                     :gen-map (s/map-of keyword? fn?)
+                     ;:gen-map :interface/gen-map
+                     ))
 (defn- validate-generators-for-likely-unique-violations!
   "When we gen/sample a lot of data, we may run the risk of creating two entities with the same value for a :db.unique/identity
   or :db.unique/value field. In both cases, when we attempt to write the resulting data as datoms to Datomic, we will end up with
@@ -750,6 +757,8 @@
 (s/fdef validate-generators!
         :args (s/cat :ast :interface/ast
                      :gen-map :interface/gen-map
+                     :gen-map (s/map-of keyword? fn?)
+                     ;:gen-map :interface/gen-map
                      :deps-graph :clojure.spec/deps-graph))
 (defn- validate-generators!
   [ast gen-map deps-graph]
