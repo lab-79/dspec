@@ -36,10 +36,11 @@ specification.
    Datomic `ref`s).
 6. Integrates with a nice way to add or retract from a Datomic db schema when
    these semantic schema definitions change.
-7. Make it easy to extract specific *kinds* of entities.
-8. (Done) Support polymorphism.
-9. Small code base.
-10. Simple design.
+7. (Done) Make it easy to extract specific *kinds* of entities.
+8. (Done) Conveniently detect what interfaces an entity satisfies.
+9. (Done) Support polymorphism.
+10. Small code base.
+11. Simple design.
 
 ## Getting started
 
@@ -385,6 +386,33 @@ this out. We can leverage attributes to identify entities in one of two ways.
 We choose to force you to think about how you will enforce this so that you do not lose
 any information about an entity's intended interfaces after you write it to the database.
 An interface definition is not valid unless you specify `:interface.def/identify-via`.
+
+We also provide convenience methods to determine the interfaces that a
+particular entity or map loaded into memory satisfies:
+
+```clojure
+(let [entity {:db/id (datomic/tempid :db.part/user)
+              :automobile/make "Toyota"
+              :automobile/model "Prius"}]
+(lab79.dspec/entity->interfaces ast entity datomic.api/q)
+; => #{:interface/automobile}
+
+(let [entity {:db/id (datomic/tempid :db.part/user)}]
+(lab79.dspec/entity->interfaces ast entity datomic.api/q)
+; => #{}
+```
+
+```clojure
+(let [entity {:db/id (datomic/tempid :db.part/user)
+              :automobile/make "Toyota"
+              :automobile/model "Prius"}]
+(lab79.dspec/satisfies-interface? ast :interface/automobile entity datomic.api/q)
+; => true
+
+(let [entity {:db/id (datomic/tempid :db.part/user)}]
+(lab79.dspec/satisfies-interface? ast :interface/automobile entity datomic.api/q)
+; => false
+```
 
 
 ### Converting Data Interfaces to Datomic Schemas

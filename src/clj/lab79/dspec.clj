@@ -837,3 +837,60 @@
   that should be associated with the AST"
   [ast tempid-factory db-id?]
   (register-specs-for-ast-with-custom-generators! ast {} tempid-factory db-id?))
+
+(s/fdef entity->datoms
+        :args (s/cat :entity (s/keys :req [:db/id]))
+        :ret (s/coll-of (s/tuple :db/id keyword? any?)))
+(defn- entity->datoms
+  "Given an entity represented as a map, convert it to a representation that is a
+  sequence of datoms of the form [entity id, attribute, value]"
+  [{:keys [db/id] :as entity}]
+  (reduce (fn [datoms [k v]]
+            (if (coll? v)
+              (into datoms (map (fn [member] [id k member]) v))
+              (conj datoms [id k v])))
+          '()
+          entity))
+
+(s/def :datomic/find vector?)
+(s/def :datomic/where vector?)
+(s/def :datomic/q-fn
+  (s/fspec :args (s/cat :query (s/with-gen
+                                  (s/or :map-query (s/keys :req-un [:datomic/find :datomic/where])
+                                        :array-query vector?)
+                                  #(gen/return {:find '[?e .] :where '[[?e :db/id]]}))
+                         :db (s/coll-of (s/tuple :db/id keyword? any?))
+                         :params (s/* any?))
+            :ret any?))
+
+(s/fdef entity->interfaces
+        :args (s/cat :ast :interface/ast
+                     :entity (s/map-of keyword? any?)
+                     :datomic-q :datomic/q-fn)
+        :ret (s/coll-of keyword? :kind set?))
+(defn entity->interfaces
+  "Given an `entity` and our `ast`, return the set of interfaces this entity satisfies."
+  [ast entity datomic-q]
+  (let [datoms (entity->datoms entity)
+        interfaces (-> ast :interface.ast/interfaces vals)]
+    (->> interfaces
+         (filter
+           (fn [{:interface.ast.interface/keys [identify-via name]}]
+             (and (not (nil? (datomic-q {:find '[?e .] :where identify-via} datoms)))
+                  (s/valid? name entity))))
+         (map :interface.ast.interface/name)
+         (into #{}))))
+
+(s/fdef satisfies-interface?
+        :args (s/cat :ast :interface/ast
+                     :interface-name keyword?
+                     :entity (s/map-of keyword? any?)
+                     :datomic-q :datomic/q-fn)
+        :ret boolean?)
+(defn satisfies-interface?
+  "Returns true if entity satisfies a data interface named `interface-name` defined in `ast`."
+  [ast interface-name entity datomic-q]
+  (let [datoms (entity->datoms entity)
+        {:keys [interface.ast.interface/identify-via]} (-> ast :interface.ast/interfaces interface-name)]
+    (and (some? (datomic-q {:find '[?e .] :where identify-via} datoms))
+         (s/valid? interface-name entity))))

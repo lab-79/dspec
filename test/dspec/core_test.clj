@@ -56,16 +56,20 @@
 
 (deftest id-via-datomic-spec-interfaces
   (let [spec {:interface.def/name :interface/eponym
-              :interface.def/fields {}
+              :interface.def/fields {:eponym/required-attr [:keyword :required]}
               :interface.def/identify-via :datomic-spec/interfaces
-              :interface.def/identifying-enum-part :db.part/test}]
+              :interface.def/identifying-enum-part :db.part/test}
+        ast (semantic-spec->semantic-ast spec)]
     (testing "generating Datomic schemas"
-      (let [ast (semantic-spec->semantic-ast spec)
-            {:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
         (is (= #{{:db/ident :datomic-spec/interfaces
                   :db/valueType :db.type/ref
                   :db/cardinality :db.cardinality/many
                   :db/index true
+                  :db.install/_attribute :db.part/db}
+                 {:db/ident :eponym/required-attr
+                  :db/valueType :db.type/keyword
+                  :db/cardinality :db.cardinality/one
                   :db.install/_attribute :db.part/db}}
                (set (map #(dissoc % :db/id) field-schema))))
         (is (= #{{:db/ident :interface/eponym}}
@@ -88,22 +92,68 @@
                               db :interface/eponym)
                 partition-eid (d/part enum-eid)
                 partition-name (get-partition-name db partition-eid)]
-            (is (= partition-name :db.part/test))))))))
+            (is (= partition-name :db.part/test))))))
+    (testing "detecting interfaces of entities"
+      (register-specs-for-ast! ast d/tempid db-id?)
+      (is (= #{:interface/eponym}
+             (entity->interfaces ast {:db/id (d/tempid :db.part/user)
+                                      :datomic-spec/interfaces #{:interface/eponym}
+                                      :eponym/required-attr :k/w} d/q)))
+      (is (empty? (entity->interfaces ast {:db/id (d/tempid :db.part/user)} d/q)))
+      (is (true? (satisfies-interface? ast
+                                :interface/eponym
+                                {:db/id (d/tempid :db.part/user)
+                                 :datomic-spec/interfaces #{:interface/eponym}
+                                 :eponym/required-attr :k/w}
+                                d/q)))
+      (is (false? (satisfies-interface? ast :interface/eponym {:db/id (d/tempid :db.part/user)
+                                                               :eponym/required-attr :k/w} d/q)))
+      (testing "can't be invalid"
+        (is (false? (satisfies-interface? ast
+                                          :interface/eponym
+                                          {:db/id (d/tempid :db.part/user)
+                                           :datomic-spec/interfaces #{:interface/eponym}}
+                                          d/q)))))))
 
 
 (deftest id-via-attribute
   (let [spec {:interface.def/name :interface/id-by-attr
-              :interface.def/fields {:obj/identifying-attr [:keyword]}
-              :interface.def/identify-via ['[?e :obj/identifying-attr]]}]
+              :interface.def/fields {:obj/identifying-attr [:keyword]
+                                     :obj/required-attr-for-id-by-attr [:keyword :required]}
+              :interface.def/identify-via ['[?e :obj/identifying-attr]]}
+        ast (semantic-spec->semantic-ast spec)]
     (testing "generating Datomic schemas"
-      (let [{:datomic/keys [field-schema]} (-> spec
-                                               semantic-spec->semantic-ast
-                                               (semantic-ast->datomic-schemas d/tempid))]
+      (let [{:datomic/keys [field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/identifying-attr
                   :db/valueType :db.type/keyword
                   :db/cardinality :db.cardinality/one
+                  :db.install/_attribute :db.part/db}
+                 {:db/ident :obj/required-attr-for-id-by-attr
+                  :db/valueType :db.type/keyword
+                  :db/cardinality :db.cardinality/one
                   :db.install/_attribute :db.part/db}}
-               (set (map #(dissoc % :db/id) field-schema))))))))
+               (set (map #(dissoc % :db/id) field-schema))))))
+    (testing "detecting interfaces of entities"
+      (register-specs-for-ast! ast d/tempid db-id?)
+      (is (= #{:interface/id-by-attr}
+             (entity->interfaces ast {:db/id (d/tempid :db.part/user)
+                                      :obj/identifying-attr :k/w
+                                      :obj/required-attr-for-id-by-attr :k/w} d/q)))
+      (is (empty? (entity->interfaces ast {:db/id (d/tempid :db.part/user)} d/q)))
+      (is (true? (satisfies-interface? ast
+                                       :interface/id-by-attr
+                                       {:db/id (d/tempid :db.part/user)
+                                        :obj/identifying-attr :k/w
+                                        :obj/required-attr-for-id-by-attr :k/w}
+                                       d/q)))
+      (is (false? (satisfies-interface? ast :interface/id-by-attr {:db/id (d/tempid :db.part/user)
+                                                                   :obj/required-attr-for-id-by-attr :k/w} d/q)))
+      (testing "can't be invalid"
+        (is (false? (satisfies-interface? ast
+                                          :interface/id-by-attr
+                                          {:db/id (d/tempid :db.part/user)
+                                           :obj/identifying-attr :k/w}
+                                          d/q)))))))
 
 (deftest semantic-spec-with-keyword-field
   (let [spec {:interface.def/name :interface/entity-with-keyword
