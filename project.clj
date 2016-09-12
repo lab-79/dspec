@@ -19,4 +19,4 @@
                      [org.clojure/tools.namespace "0.2.11"]
                      [com.datomic/datomic-free "0.9.5390"]
                      ]}}
-  :plugins [[lein-cloverage "1.0.6"]])
+  :plugins [[lein-cloverage "1.0.7-SNAPSHOT"]])
