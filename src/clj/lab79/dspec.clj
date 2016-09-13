@@ -437,18 +437,6 @@
     (validate-semantic-ast combined-ast)
     combined-ast))
 
-; TODO Rename
-(s/fdef semantic-spec-coll->datomic-schemas
-        :args (s/cat :specs (s/spec (s/+ :interface/def))
-                     :tempid-factory tempid-factory-spec)
-        :ret (s/keys :opt [:datomic/field-schema :datomic/partition-schema :datomic/enum-schema]))
-(defn semantic-spec-coll->datomic-schemas
-  "Given a collection of semantic specs, generates edn that represents attributes to add to Datomic schema"
-  [specs tempid-factory]
-  (-> specs
-      semantic-spec-coll->semantic-ast
-      (semantic-ast->datomic-schemas tempid-factory)))
-
 (defn validate-semantic-interfaces
   "Validates a collection of semantic interface definitions"
   [specs]
