@@ -14,9 +14,9 @@
   [specs tempid-factory db-id?]
   (-> specs
       semantic-spec-coll->semantic-ast
-      register-specs-for-ast! tempid-factory db-id?))
+      (register-specs-for-ast! tempid-factory db-id?)))
 
-(defn create-generative-clojure-specs!
+(defn create-clojure-specs-with-custom-generators!
   "Registers all clojure.specs with custom generators. Specs are auto-created
   based off of our interface definitions in resources/data/schemas/ and
   custom generators for these specs and their fields that override the
