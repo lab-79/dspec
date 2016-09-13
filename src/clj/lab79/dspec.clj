@@ -437,12 +437,6 @@
     (validate-semantic-ast combined-ast)
     combined-ast))
 
-(defn validate-semantic-interfaces
-  "Validates a collection of semantic interface definitions"
-  [specs]
-  ; TODO
-  (s/valid? (s/+ :interface/def) specs))
-
 ; TODO Get more specific than any?
 (s/def :clojure.spec/deps-graph any?)
 (s/def :clojure.spec/macros (s/map-of keyword? any?))
