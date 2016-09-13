@@ -1081,6 +1081,16 @@
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/child :interface/mother :interface/father}))))
 
+(let [specs [{:interface.def/name :interface/string-generator
+              :interface.def/fields {:string-generator/str [:string]}
+              :interface.def/identify-via [['? :string-generator/str]]}]
+      ast (semantic-spec-coll->semantic-ast specs)]
+  (register-specs-for-ast! ast d/tempid db-id?)
+  (defspec string-attributes-should-always-generate-non-empty-strings
+    100
+    (prop/for-all [str (s/gen :string-generator/str)]
+                  (is (pos? (count str))))))
+
 
 (deftest determine-identifying-datalog-clauses-from-interface
   (testing "for identify-via :datomic-spec/interfaces"
