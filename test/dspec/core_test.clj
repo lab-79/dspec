@@ -639,6 +639,20 @@
                   :db.install/_attribute :db.part/db}}
                (set (map #(dissoc % :db/id) field-schema))))))))
 
+(deftest spec-with-nohistory
+  (let [specs [#:interface.def{:name :interface/entity-with-index
+                               :fields {:obj/no-history-attr [:keyword :db/noHistory]}
+                               :identify-via '[[?e :obj/indexed-attr]]}]
+        ast (semantic-spec-coll->semantic-ast specs)]
+    (testing "generating Datomic schemas"
+      (let [{:keys [datomic/field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+        (is (= #{{:db/ident :obj/no-history-attr
+                  :db/valueType :db.type/keyword
+                  :db/cardinality :db.cardinality/one
+                  :db/noHistory true
+                  :db.install/_attribute :db.part/db}}
+               (set (map #(dissoc % :db/id) field-schema))))))))
+
 (deftest spec-with-is-component-field
   (let [specs [#:interface.def{:name :interface/entity-with-component
                                :fields {:obj/component-attr [:interface/component-entity :db/isComponent]}
