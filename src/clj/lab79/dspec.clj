@@ -235,7 +235,7 @@
                                              (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
                                              (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
                                              (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                             (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} vals))
+                                             (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set vals))
                                              (update :interface.ast/enum-map into (map (fn [kw] [kw {:db/ident kw}])) vals))
                [[:single-type
                  [:enum
@@ -244,7 +244,7 @@
                                                     (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
                                                     (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
                                                     (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                                    (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} (keys kw->doc)))
+                                                    (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set (keys kw->doc)))
                                                     (update :interface.ast/enum-map
                                                             into (map (fn [[kw doc]] [kw {:db/ident kw :db/doc doc}])) kw->doc))
                [[:many-type
@@ -268,7 +268,7 @@
                                              (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
                                              (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
                                              (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                             (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} vals))
+                                             (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set vals))
                                              (update :interface.ast/enum-map into (map (fn [kw] [kw {:db/ident kw}])) vals))
 
                [[:many-type
@@ -278,7 +278,7 @@
                                                     (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
                                                     (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
                                                     (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                                    (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} (keys kw->doc)))
+                                                    (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set (keys kw->doc)))
                                                     (update :interface.ast/enum-map
                                                             into (map (fn [[kw doc]] [kw {:db/ident kw :db/doc doc}])) kw->doc))
 
@@ -852,7 +852,7 @@
              (and (not (nil? (datomic-q {:find '[?e .] :where identify-via} datoms)))
                   (s/valid? name entity))))
          (map :interface.ast.interface/name)
-         (into #{}))))
+         set)))
 
 (s/fdef satisfies-interface?
         :args (s/cat :ast :interface/ast
