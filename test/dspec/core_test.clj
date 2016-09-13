@@ -627,7 +627,7 @@
 
 (deftest spec-with-indexed-field
   (let [specs [#:interface.def{:name :interface/entity-with-index
-                               :fields {:obj/indexed-attr [:keyword]}
+                               :fields {:obj/indexed-attr [:keyword :db/index]}
                                :identify-via '[[?e :obj/indexed-attr]]}]
         ast (semantic-spec-coll->semantic-ast specs)]
     (testing "generating Datomic schemas"
