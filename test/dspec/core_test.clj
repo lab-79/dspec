@@ -1099,9 +1099,17 @@
       ast (semantic-spec-coll->semantic-ast specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-coll-attribute-should-always-generate-non-empty-strings
-    100
-    (prop/for-all [strings (s/gen :string-coll-generator/strings)]
-                  (is (every? #(pos? (count %)) strings)))))
+           100
+           (prop/for-all [strings (s/gen :string-coll-generator/strings)]
+                         (is (every? #(pos? (count %)) strings))))
+  (let [generators {:string-coll-generator/strings (fn [member-generator-factory]
+                                                     (gen/set (member-generator-factory) {:min-elements 1
+                                                                                          :max-elements 1}))}]
+    (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?)
+    (defspec string-coll-attribute-should-always-generate-non-empty-strings-with-custom-generator
+             100
+             (prop/for-all [strings (s/gen :string-coll-generator/strings)]
+                           (is (every? #(pos? (count %)) strings))))))
 
 
 (deftest determine-identifying-datalog-clauses-from-interface
