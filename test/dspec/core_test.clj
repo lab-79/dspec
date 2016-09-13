@@ -8,9 +8,8 @@
             [lab79.dspec.gen :refer [ensure-keys-gen]]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
-            [datomic.api :as d])
-
-  (:import (datomic.db DbId)))
+            [datomic.api :as d]
+            [dspec.util :refer [db-id?]]))
 
 (def ^:dynamic *conn* nil)
 
@@ -27,9 +26,6 @@
 ; Instrument all our functions in dspec
 (-> (stest/enumerate-namespace 'lab79.dspec)
     stest/instrument)
-
-(def db-id? #(or (integer? %)
-                 (instance? datomic.db.DbId %)))
 
 (def family-semantic-specs
   [{:interface.def/name :interface/child

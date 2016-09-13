@@ -1,15 +1,11 @@
 (ns dspec.helpers-test
   (:require [clojure.test :refer :all]
-            [clojure.test.check :as tc]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check.properties :as prop]
             [clojure.spec.test :as stest]
             [lab79.dspec.helpers :refer :all]
             [clojure.spec :as s]
             [clojure.spec.gen :as gen]
-            [datomic.api :as d])
-  
-  (:import (datomic.db DbId)))
+            [datomic.api :as d]
+            [dspec.util :refer [db-id?]]))
 
 ; Instrument all our functions in dspec
 (doseq [nspace ['lab79.dspec 'lab79.dspec.helpers]]
@@ -27,4 +23,13 @@
                 :db/valueType :db.type/keyword
                 :db/cardinality :db.cardinality/one
                 :db.install/_attribute :db.part/db}}
-             (set (map #(dissoc % :db/id) field-schema)))))))
+             (set (map #(dissoc % :db/id) field-schema))))))
+
+  (deftest test-create-clojure-specs!
+    ; should not throw
+    (create-clojure-specs! specs d/tempid db-id?))
+
+  (deftest test-create-clojure-specs-with-custom-generators!
+    ; should not throw
+    (let [generators {:helper-a/key #(gen/fmap (fn [str] keyword "constant-ns" str) (gen/string-alphanumeric))}]
+      (create-clojure-specs-with-custom-generators! specs generators d/tempid db-id?))))
