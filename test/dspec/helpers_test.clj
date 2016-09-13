@@ -31,5 +31,7 @@
 
   (deftest test-create-clojure-specs-with-custom-generators!
     ; should not throw
-    (let [generators {:helper-a/key #(gen/fmap (fn [str] keyword "constant-ns" str) (gen/string-alphanumeric))}]
+    (let [generators {:helper-a/key #(gen/fmap
+                                       (fn [string] (keyword "constant-ns" string))
+                                       (gen/string-alphanumeric))}]
       (create-clojure-specs-with-custom-generators! specs generators d/tempid db-id?))))

@@ -810,6 +810,24 @@
                             #"Invalid attribute type :interface/some-undefined-type"
                             (semantic-spec-coll->semantic-ast specs))))))
 
+(deftest dspecs-whose-generators-can-violate-their-specs
+  (testing "warn against generators that will potentially violate "
+    (let [specs [#:interface.def{:name :interface/violates-such-that
+                                 :fields {:invalid/one [:keyword :required]}
+                                 :identify-via [['?e :invalid/one]]}]
+          ast (semantic-spec-coll->semantic-ast specs)
+          ;generators {:invalid/one #(gen/return nil)}
+          generators {:interface/violates-such-that (fn [base-gen-spec-factory]
+                                                      (gen/fmap
+                                                        (fn [generated-maps]
+                                                          (apply merge generated-maps))
+                                                        (gen/tuple (s/gen (base-gen-spec-factory))
+                                                                   (gen/return {:invalid/one nil}))))}
+          ]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo
+                            #"Spec :interface/violates-such-that and/or its custom generators are defined in such a way that it is possible to generate data such that it does not satisfy the spec."
+                            (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?))))))
+
 (deftest semantic-spec-coll-with-circular-references
   (testing "interfaces with circular dependencies"
     (let [specs [{:interface.def/name :interface/a-points-to-b

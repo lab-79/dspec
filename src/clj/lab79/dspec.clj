@@ -539,8 +539,7 @@
                            (let [generators (cond-> (map (fn [x] (s/gen x)) all-inherited)
                                                     custom-generator-factory (conj (custom-generator-factory base-gen-spec-factory))
                                                     (not custom-generator-factory) (conj (s/gen base-gen-spec)))]
-                             (apply gen/tuple generators)))
-                        ))]
+                             (apply gen/tuple generators)))))]
     {:spec spec
      :gen-factory gen-factory}))
 
@@ -672,21 +671,27 @@
         :args (s/cat :ast :interface/ast
                      :gen-map (s/map-of keyword? fn?)
                      ;:gen-map :interface/gen-map
-                     :sorted-deps (s/coll-of keyword?)))
+                     :sorted-deps (s/coll-of keyword?)
+                     :desired-confidence (s/and integer? pos?)))
 (defn- validate-generators-for-likely-such-that-violations!
   "Our specs are defined implicitly with gen/such-that. We may end up passing in custom generators
   or defining interfaces that end up generating data that violate the implicit gen/such-that
   predicates. This function makes it easier to understand what might be causing the gen/such-that
   violation. Otherwise, we would have no hints as to what might be causing the violations."
-  [ast gen-map sorted-deps]
+  [ast gen-map sorted-deps desired-confidence]
   (let [interface-name->spec&generator (reduce #(assoc %1 %2 (interface->clojure-spec&generator ast %2 gen-map))
-                                               {} (keys (:interface.ast/interface ast)))]
+                                               {} (keys (:interface.ast/interfaces ast)))]
     (doseq [spec-name sorted-deps]
       (if-let [{:keys [spec gen-factory]} (interface-name->spec&generator spec-name)]
-        (let [data (gen/sample (gen-factory) 50)]
+        (let [data (gen/sample (gen-factory) desired-confidence)]
           (doseq [datum data]
             (when-not (s/valid? spec datum)
-              (s/explain spec datum))))))))
+              (throw (ex-info (str "Spec " spec-name
+                                   " and/or its custom generators are defined in such a way that it is possible to generate data such that it does not satisfy the spec.\n"
+                                   (s/explain-str spec datum))
+                              {:spec-name spec-name
+                               :datum datum
+                               :explain-data (s/explain-data spec datum)})))))))))
 
 (s/fdef validate-generators-for-likely-unique-violations!
         :args (s/cat :ast :interface/ast
@@ -740,7 +745,7 @@
                      :sorted-deps (s/coll-of keyword?)))
 (defn- validate-generators!
   [ast gen-map sorted-deps]
-  (validate-generators-for-likely-such-that-violations! ast gen-map sorted-deps)
+  (validate-generators-for-likely-such-that-violations! ast gen-map sorted-deps 50)
   (validate-generators-for-likely-unique-violations! ast gen-map))
 
 ;(s/fdef register-specs-for-ast-with-custom-generators!

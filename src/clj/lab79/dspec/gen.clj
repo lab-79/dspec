@@ -18,8 +18,8 @@
 
 (s/fdef only-keys-gen
         :args (s/cat :keywords (s/+ keyword?))
-        :ret (s/fspec :args (s/cat :base-map-gen-factory (s/fspec :args (s/cat)
-                                                                  :ret generator?))
+        :ret (s/fspec :args (s/cat :base-spec-factory (s/fspec :args (s/cat)
+                                                               :ret s/spec?))
                       :ret generator?))
 (defn only-keys-gen
   "Returns a generator factory that ensures every generated map has ONLY
@@ -34,14 +34,14 @@
 
 (s/fdef ensure-keys-gen
         :args (s/cat :keywords (s/+ keyword?))
-        :ret (s/fspec :args (s/cat :base-map-gen-factory (s/fspec :args (s/cat)
-                                                                :ret generator?))
+        :ret (s/fspec :args (s/cat :base-spec-factory (s/fspec :args (s/cat)
+                                                                :ret s/spec?))
                       :ret generator?))
 (defn ensure-keys-gen
   "Returns a generator factory that ensures every generated map has at least
   the keys specified by `field-keys`."
   [& ensure-keys]
-  (fn [base-map-gen-factory]
-    (s/gen (s/merge (base-map-gen-factory)
+  (fn [base-spec-factory]
+    (s/gen (s/merge (base-spec-factory)
                     ; clojure.spec/keys is a macro so it can't take a symbol like `ensure-keys` directly
                     (eval `(s/keys :req ~ensure-keys))))))

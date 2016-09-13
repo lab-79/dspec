@@ -13,7 +13,7 @@
 (let [gen-factory (only-keys-gen :x/x :y/y)
       _ (s/def :x/x keyword?)
       _ (s/def :y/y keyword?)
-      generator (gen-factory #(gen/return nil))]
+      generator (gen-factory #(s/keys))]
   (defspec test-only-keys-gen
            100
            (prop/for-all [m generator]
