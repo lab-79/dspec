@@ -636,7 +636,8 @@
                   :db/valueType :db.type/keyword
                   :db/cardinality :db.cardinality/one
                   :db/index true
-                  :db.install/_attribute :db.part/db}}))))))
+                  :db.install/_attribute :db.part/db}}
+               (set (map #(dissoc % :db/id) field-schema))))))))
 
 (deftest spec-with-is-component-field
   (let [specs [#:interface.def{:name :interface/entity-with-component
