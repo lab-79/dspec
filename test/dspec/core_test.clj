@@ -635,6 +635,21 @@
                   :db.install/_attribute :db.part/db}}
                (set (map #(dissoc % :db/id) field-schema))))))))
 
+; TODO validate fulltext only works with :string attributes
+(deftest spec-with-fulltext-field
+  (let [specs [#:interface.def{:name :interface/entity-with-fulltext
+                               :fields {:obj/fulltext-attr [:string :db/fulltext]}
+                               :identify-via '[[?e :obj/fulltext-attr]]}]
+        ast (semantic-spec-coll->semantic-ast specs)]
+    (testing "generating Datomic schemas"
+      (let [{:keys [datomic/field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+        (is (= #{{:db/ident :obj/fulltext-attr
+                  :db/valueType :db.type/string
+                  :db/cardinality :db.cardinality/one
+                  :db/fulltext true
+                  :db.install/_attribute :db.part/db}}
+               (set (map #(dissoc % :db/id) field-schema))))))))
+
 (deftest spec-with-nohistory
   (let [specs [#:interface.def{:name :interface/entity-with-index
                                :fields {:obj/no-history-attr [:keyword :db/noHistory]}
