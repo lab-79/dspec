@@ -1,12 +1,13 @@
 (ns lab79.dspec.helpers
-  (:require [lab79.dspec :refer [semantic-spec-coll->datomic-schemas
+  (:require [lab79.dspec :refer [semantic-ast->datomic-schemas
                                  semantic-spec-coll->semantic-ast
                                  register-specs-for-ast!]]))
 
 (defn specs->datomic
   [specs]
   (-> specs
-      semantic-spec-coll->datomic-schemas))
+      semantic-spec-coll->semantic-ast
+      semantic-ast->datomic-schemas))
 
 (defn create-clojure-specs!
   [specs]
