@@ -406,17 +406,6 @@
    :datomic/enum-schema (semantic-ast->datomic-enum-schemas ast tempid-factory)
    :datomic/partition-schema (semantic-ast->datomic-partition-schemas ast tempid-factory)})
 
-(s/fdef semantic-spec->datomic-schemas
-        :args (s/cat :spec :interface/def
-                     :tempid-factory tempid-factory-spec)
-        :ret (s/keys :opt [:datomic/field-schema :datomic/partition-schema :datomic/enum-schema]))
-(defn semantic-spec->datomic-schemas
-  "Given a semantic spec, generates edn that represents attributes to add to Datomic schema"
-  [spec tempid-factory]
-  (-> spec
-      semantic-spec->semantic-ast
-      (semantic-ast->datomic-schemas tempid-factory)))
-
 (defn- validate-semantic-ast
   [ast]
   (let [enum-vals (set (select [:interface.ast/enum-map MAP-VALS :db/ident] ast))
