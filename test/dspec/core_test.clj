@@ -625,6 +625,19 @@
                 :interface.ast/enum-map {:interface/entity-with-string-collection {:db/ident :interface/entity-with-string-collection
                                                                                    :db/part :db.part/other}}}))))))
 
+(deftest spec-with-indexed-field
+  (let [specs [#:interface.def{:name :interface/entity-with-index
+                               :fields {:obj/indexed-attr [:keyword]}
+                               :identify-via '[[?e :obj/indexed-attr]]}]
+        ast (semantic-spec-coll->semantic-ast specs)]
+    (testing "generating Datomic schemas"
+      (let [{:keys [datomic/field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+        (is (= #{{:db/ident :obj/indexed-attr
+                  :db/valueType :db.type/keyword
+                  :db/cardinality :db.cardinality/one
+                  :db/index true
+                  :db.install/_attribute :db.part/db}}))))))
+
 (deftest spec-with-is-component-field
   (let [specs [#:interface.def{:name :interface/entity-with-component
                                :fields {:obj/component-attr [:interface/component-entity :db/isComponent]}
