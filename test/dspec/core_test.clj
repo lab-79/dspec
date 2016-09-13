@@ -674,43 +674,6 @@
                                :identify-via :datomic-spec/interfaces
                                :identifying-enum-part :db.part/user}]
         ast (semantic-spec-coll->semantic-ast specs)]
-    (testing "ast"
-      (is (= #:interface.ast{:interfaces {:interface/entity-with-component
-                                          #:interface.ast.interface{:name :interface/entity-with-component
-                                                                    :fields {:obj/component-attr {:db/ident :obj/component-attr
-                                                                                                  :db/valueType :db.type/ref
-                                                                                                  :interface.ast.field/type :interface/component-entity
-                                                                                                  :db/cardinality :db.cardinality/one
-                                                                                                  :db/isComponent true}
-                                                                             :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
-                                                                                                       :db/valueType :db.type/ref
-                                                                                                       :db/index true
-                                                                                                       :interface.ast.field/type :enum
-                                                                                                       :interface.ast.field/possible-enum-vals #{:interface/entity-with-component}
-                                                                                                       :interface.ast.field/required true
-                                                                                                       :db/cardinality :db.cardinality/many}}
-                                                                    :identify-via '[[?e :datomic-spec/interfaces :interface/entity-with-component]]
-                                                                    :inherits #{}}
-                                          :interface/component-entity
-                                          #:interface.ast.interface{:name :interface/component-entity
-                                                                    :fields {:component/key {:db/ident :component/key
-                                                                                             :db/valueType :db.type/keyword
-                                                                                             :interface.ast.field/type :keyword
-                                                                                             :db/cardinality :db.cardinality/one}
-                                                                             :datomic-spec/interfaces {:db/ident :datomic-spec/interfaces
-                                                                                                       :db/valueType :db.type/ref
-                                                                                                       :db/index true
-                                                                                                       :interface.ast.field/type :enum
-                                                                                                       :interface.ast.field/possible-enum-vals #{:interface/component-entity}
-                                                                                                       :interface.ast.field/required true
-                                                                                                       :db/cardinality :db.cardinality/many}}
-                                                                    :identify-via '[[?e :datomic-spec/interfaces :interface/component-entity]]
-                                                                    :inherits #{}}}
-                             :enum-map {:interface/entity-with-component {:db/ident :interface/entity-with-component
-                                                                          :db/part :db.part/user}
-                                        :interface/component-entity {:db/ident :interface/component-entity
-                                                                     :db/part :db.part/user}}}
-             ast)))
     (testing "generating Datomic schemas"
       (let [{:datomic/keys [field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/component-attr
