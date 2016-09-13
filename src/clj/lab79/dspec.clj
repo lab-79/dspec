@@ -555,12 +555,8 @@
         spec-factory (constantly spec)
         gen-factory (if (and (not inherited-custom-generators?)
                              (not identify-via-datomic-spec-interfaces?)
-                             ; TODO custom-generator-factory is always truthy because we assign it above
                              (not custom-generator-factory))
-                      #(do
-                         (println `spec)
-                         (println spec)
-                         (s/gen spec))
+                      #(s/gen spec)
                       (if-not (or identify-via-datomic-spec-interfaces? inherited-custom-generators?)
                         #(custom-generator-factory spec-factory)
                         #(gen/fmap
