@@ -6,23 +6,11 @@
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS collect-one]]
             [com.rpl.specter.macros :refer [select traverse select-first]]
+            [lab79.dspec.util :refer [arity filter-kv]]
             [lab79.datomic-spec :refer [datomic-value-types
                                         datomic-schema-keys]]
             [lab79.dspec.gen :refer [ensure-keys-gen fn->gen]]))
 
-
-; Commented out until we can figure out how to spec a higher order function
-; whose input function can take on any number or args. Currently, clojure.spec
-; does not apparently support specs to handle functions that can take 0 or
-; non-0 length args, against a function that has 0 arity.
-;(s/fdef arity
-;        :args (s/cat :f (s/fspec :args (s/cat :args (s/* any?))
-;                                 :ret any?))
-;        :ret boolean?)
-(defn- arity
-  "Returns the arity -- i.e., the number of arguments -- of a function f."
-  [f]
-  (-> f class .getDeclaredMethods first .getParameterTypes alength))
 
 ;
 ; clojure.spec describing how devs define data interfaces
@@ -299,15 +287,6 @@
                                      (= :datomic-spec/interfaces identify-via) (assoc name {:db/ident name
                                                                                             :db/part identifying-enum-part}))}))
 
-
-(s/fdef filter-kv
-        :args (s/cat :pred (s/fspec :args (s/cat :key any? :value any?)
-                                    :ret boolean?)
-                     :hash-map map?)
-        :ret map?)
-(defn- filter-kv
-  [pred hash-map]
-  (into {} (filter (fn [[k v]] (pred k v)) hash-map)))
 
 (def ^:private tempid-factory-spec
   (s/fspec :args (s/alt :binary (s/cat :partition keyword? :num integer?)
