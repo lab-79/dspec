@@ -62,7 +62,7 @@
 
 (s/def :interface.def.field/single-type
   (s/alt :enum (s/cat :flag #{:enum}
-                           :vals :interface.def.field.enum/vals)
+                      :vals :interface.def.field.enum/vals)
          :non-enum :interface.def.field/single-non-enum-type))
 (s/def :interface.def.field/many-type
   (s/alt :enum (s/cat :flag #{[:enum]}
