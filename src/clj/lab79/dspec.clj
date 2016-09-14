@@ -800,7 +800,7 @@
               (into datoms (map (fn [member] [id k member]) v))
               (conj datoms [id k v])))
           '()
-          entity))
+          (dissoc entity :db/id)))
 
 (s/fdef entity->interfaces
         :args (s/cat :ast :interface/ast
