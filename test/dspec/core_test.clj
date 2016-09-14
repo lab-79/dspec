@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.test.check :as tc]
             [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.generators :as tcgen :refer [generator?]]
             [clojure.test.check.properties :as prop]
             [clojure.spec.test :as stest]
             [lab79.dspec :refer :all]
@@ -25,7 +26,8 @@
 
 ; Instrument all our functions in dspec
 (-> (stest/enumerate-namespace 'lab79.dspec)
-    stest/instrument)
+    (stest/instrument {:datomic.api/q #(gen/return d/q)
+                       :interface.ast.field/type #(s/gen NATIVE-TYPES)}))
 
 (def family-semantic-specs
   [{:interface.def/name :interface/child
@@ -1185,12 +1187,46 @@
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
 
-;(deftest check-all-fns
-;  (let [fails (->> (stest/enumerate-namespace 'lab79.dspec)
-;                   (mapcat stest/check)
-;                   (filter :failure))]
-;    (println fails)
-;    (is (empty? fails))))
+(deftest clojure-spec-test-check-major-fns
+  (let [gen-overrides
+         {:interface.def/field #(gen/fmap (fn [m] (flatten (vals m))) (s/gen (s/keys :req [:interface.def.field/single-type] :opt [:db/doc])))
+          :interface.def/identifying-enum-part #(gen/return :db.part/user)
+
+          :interface/def #(tcgen/resize 10 (s/gen :interface/def))
+          ;:interface.def.field.enum/vals-no-doc #(tcgen/resize 2 (s/gen :interface.def.field.enum/vals-no-doc))
+          ;:interface.def.field.enum/vals-with-doc #(tcgen/resize 2 (s/gen :interface.def.field.enum/vals-with-doc))
+
+          :interface.ast.field/type #(s/gen NATIVE-TYPES)
+          :interface.ast/field #(gen/fmap
+                                  (partial apply merge)
+                                  (gen/tuple
+                                    (s/gen (s/keys :req [:db/ident :db/cardinality]
+                                                   :opt [:interface.ast.field/required
+                                                         :db/doc
+                                                         :db/unique
+                                                         :db/index
+                                                         :db/isComponent
+                                                         :db/noHistory
+                                                         :db/fulltext]))
+                                    (gen/bind
+                                      (s/gen :interface.ast.field/type
+                                             ; TODO I thought I had inherited
+                                             ; this from the overrides map, but
+                                             ; obviously not. Figure out how to
+                                             ; identify the failure more
+                                             ; easily.
+                                             {:interface.ast.field/type (fn [] (s/gen NATIVE-TYPES))})
+                                      (fn [field-type]
+                                        (gen/return {:interface.ast.field/type field-type
+                                                     :db/valueType (keyword "db.type" (name field-type))})))))
+          :dummy/gen-factory #(s/gen (s/fspec :args (s/cat)
+                                              :ret generator?
+                                              :gen (fn []
+                                                     (gen/return (fn []
+                                                                   (gen/return nil))))))}]
+    (is (->> (stest/check `semantic-spec->semantic-ast {:gen gen-overrides})
+             (every? #(true? (get-in % [:clojure.spec.test.check/ret :result])))))
+    ))
 
 (comment
   (let [specs [{:interface.def/name :interface/x->y
