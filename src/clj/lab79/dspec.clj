@@ -24,7 +24,21 @@
                :id-via-attr #(= (-> % :interface.def/identify-via first) :identify-via/datalog-clause))))
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
-(s/def :interface.def/field (s/+ :interface.def.field/trait))
+(s/def :interface.def/field
+  (s/with-gen
+    (s/and (s/+ :interface.def.field/trait)
+           ; Ensure we have a type
+           #(->> % (map first) (some #{:many-type :single-type}))
+           ; Ensure each "kind" of trait only appears once per field
+           #(->> % (map first) frequencies vals (every? (partial identical? 1))))
+    ; TODO Make a richer generator that uses all kinds of traits
+    #(gen/fmap
+       (fn [[single-type optional-kv]]
+         (flatten (conj (vals optional-kv) single-type)))
+       (gen/tuple
+         (s/gen :interface.def.field/single-type)
+         (s/gen (s/keys :opt [:db/doc :db/unique]))))
+    ))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
 
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
