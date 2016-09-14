@@ -434,11 +434,17 @@
         {:keys [interface.ast.interface/inherits]} interface]
     (into inherits (mapcat #(all-inherited-interface-names ast %) inherits))))
 
-(s/def :gen/generator-factory (s/fspec :args (s/cat)
-                                       :ret generator?))
-(s/def :gen/generator-factory-with-member (s/fspec :args (s/cat :member-generator :gen/generator-factory)
-                                                   :ret generator?))
-
+(s/def :gen/generator-factory
+  (s/fspec :args (s/cat)
+           :ret generator?
+           :gen #(gen/return
+                   (fn [] (gen/return :k/w)))))
+(s/def :gen/generator-factory-with-member
+  (s/fspec :args (s/cat :member-generator-factory :gen/generator-factory)
+           :ret generator?
+           :gen #(gen/return (fn [mem-gen-factory]
+                   (gen/set (mem-gen-factory) {:min-elements 1
+                                               :max-elements 1})))))
 
 (s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
@@ -554,9 +560,10 @@
             dependencies)))
 
 (s/fdef field->clojure-specs
-        :arg (s/cat :field :interface.ast/field
-                    ; TODO Better than any?
-                    :custom-generator-factory any?)
+        :args (s/cat :field :interface.ast/field
+                     :custom-generator-factory (s/alt :nil nil?
+                                                      :func (s/alt :arity-0 :gen/generator-factory
+                                                                   :arity-1 :gen/generator-factory-with-member)))
         :ret any?)
 (defn- field->clojure-specs
   "Returns the clojure.spec macro for the given `field`, with an optional `custom-generator-factory`"
