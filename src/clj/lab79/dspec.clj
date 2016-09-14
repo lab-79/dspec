@@ -446,13 +446,18 @@
                    (gen/set (mem-gen-factory) {:min-elements 1
                                                :max-elements 1})))))
 
+
+(s/def :cljspec/spec s/spec?)
+(s/def :dspec/gen-factory (s/fspec :args (s/cat)
+                                   :ret generator?))
+(s/def :dummy/gen-factory fn?)
 (s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?
-                     :gen-map (s/map-of keyword? fn?)
+                     :gen-map (s/map-of keyword? :dummy/gen-factory)
                      ;:gen-map :interface/gen-map
                      )
-        :ret (s/keys :req-un [::spec ::gen-factory]))
+        :ret (s/keys :req-un [:cljspec/spec :dspec/gen-factory]))
 (defn- interface->clojure-spec&generator
   "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
   [ast interface-name gen-map]
@@ -592,7 +597,7 @@
 (s/fdef interface->clojure-specs
         :args (s/cat :ast :interface/ast
                      :ast/interface :interface.ast/interface
-                     :gen-map (s/map-of keyword? fn?)
+                     :gen-map (s/map-of keyword? :dummy/gen-factory)
                      ;:gen-map :interface/gen-map
                      )
         :ret (s/map-of keyword? any?))
@@ -626,7 +631,7 @@
 
 (s/fdef ast->clojure-specs
         :args (s/cat :ast :interface/ast
-                     :gen-map (s/map-of keyword? fn?)
+                     :gen-map (s/map-of keyword? :dummy/gen-factory)
                      ;:gen-map :interface/gen-map
                      )
         :ret :clojure.spec/macros)
@@ -642,7 +647,7 @@
 
 (s/fdef validate-generators-for-likely-such-that-violations!
         :args (s/cat :ast :interface/ast
-                     :gen-map (s/map-of keyword? fn?)
+                     :gen-map (s/map-of keyword? :dummy/gen-factory)
                      ;:gen-map :interface/gen-map
                      :sorted-deps (s/coll-of keyword?)
                      :desired-confidence (s/and integer? pos?)))
@@ -668,7 +673,7 @@
 
 (s/fdef validate-generators-for-likely-unique-violations!
         :args (s/cat :ast :interface/ast
-                     :gen-map (s/map-of keyword? fn?)
+                     :gen-map (s/map-of keyword? :dummy/gen-factory)
                      ;:gen-map :interface/gen-map
                      ))
 (defn- validate-generators-for-likely-unique-violations!
@@ -713,7 +718,7 @@
 
 (s/fdef validate-generators!
         :args (s/cat :ast :interface/ast
-                     :gen-map (s/map-of keyword? fn?)
+                     :gen-map (s/map-of keyword? :dummy/gen-factory)
                      ;:gen-map :interface/gen-map
                      :sorted-deps (s/coll-of keyword?)))
 (defn- validate-generators!
