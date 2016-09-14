@@ -6,6 +6,8 @@
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS collect-one]]
             [com.rpl.specter.macros :refer [select traverse select-first]]
+            [lab79.datomic-spec :refer [datomic-value-types
+                                        datomic-schema-keys]]
             [lab79.dspec.gen :refer [ensure-keys-gen fn->gen]]))
 
 
@@ -22,34 +24,6 @@
   [f]
   (-> f class .getDeclaredMethods first .getParameterTypes alength))
 
-(def datomic-schema-keys
-  #{:db/id :db/ident :db/valueType :db/cardinality :db/doc :db/unique :db/index :db/isComponent :db/noHistory
-    :db/fulltext :db.install/_attribute :db.install/_partition})
-
-;
-; Datomic clojure.spec
-;
-
-(s/def :db.install/_attribute #{:db.part/db})
-(s/def :db.install/_partition #{:db.part/db})
-
-(s/def :db/ident keyword?)
-(def ^:private datomic-value-types
-  #{:db.type/string :db.type/boolean :db.type/long :db.type/bigint :db.type/float :db.type/double :db.type/bigdec
-    :db.type/instant :db.type/uuid :db.type/uri :db.type/keyword :db.type/bytes :db.type/ref})
-(s/def :db/valueType datomic-value-types)
-(s/def :db/cardinality #{:db.cardinality/one :db.cardinality/many})
-(s/def :db/doc string?)
-(s/def :db/unique #{:db.unique/value :db.unique/identity})
-(s/def :db/index boolean?)
-(s/def :db/isComponent boolean?)
-(s/def :db/noHistory boolean?)
-(s/def :db/fulltext boolean?)
-(s/def :datomic/partition-schema (s/keys :req [:db/id :db/ident :db.install/_partition]))
-(s/def :datomic/enum-schema (s/keys :req [:db/id :db/ident] :opt [:db/doc]))
-(s/def :datomic/field-schema (s/keys :req [:db/ident :db/valueType :db/cardinality :db/id :db.install/_attribute]
-                                     :opt [:db/doc :db/unique :db/index :db/isComponent :db/noHistory :db/fulltext]))
-
 ;
 ; clojure.spec describing how devs define data interfaces
 ;
@@ -63,14 +37,9 @@
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
 (s/def :interface.def/field (s/+ :interface.def.field/trait))
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
-(def ^:private datalog-pair-spec (s/tuple #{'?e} keyword?))
-(def ^:private datalog-triplet-spec (s/tuple #{'?e} keyword? any?))
-(s/def :datalog/clause (s/or :datalog/pair datalog-pair-spec
-                             :datalog/triplet datalog-triplet-spec
-                             ; TODO Do better than any?
-                             :datalog/complex any?))
+
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
-                                         :identify-via/datalog-clause (s/coll-of :datalog/clause :kind vector?)))
+                                         :identify-via/datalog-clause (s/coll-of :datalog/where-clause :kind vector? :min-count 1)))
 (s/def :db/part (s/with-gen (s/and keyword? #(= (namespace %) "db.part"))
                             (gen/fmap #(keyword "db.part" %) (gen/string-alphanumeric))))
 (s/def :interface.def/identifying-enum-part :db/part)
@@ -126,7 +95,7 @@
 (s/def :interface.ast.interface/name keyword?)
 (s/def :interface.ast.interface/fields (s/map-of keyword? :interface.ast/field))
 (s/def :interface.ast.interface/inherits (s/coll-of keyword? :kind set?))
-(s/def :interface.ast.interface/identify-via (s/coll-of :datalog/clause :kind vector?))
+(s/def :interface.ast.interface/identify-via (s/coll-of :datalog/where-clause :kind vector? :min-count 1))
 
 (s/def :interface.ast/enum-map
   (s/map-of keyword? :interface.ast/enum))
@@ -543,7 +512,7 @@
     {:spec spec
      :gen-factory gen-factory}))
 
-(def ^:private NATIVE-TYPES
+(def NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
 
 (defn- interface-type?
@@ -788,7 +757,7 @@
 (s/fdef ast&interface->identifying-datalog-clauses
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?)
-        :ret (s/coll-of :datalog/clause :kind vector?))
+        :ret (s/coll-of :datalog/where-clause :kind vector?))
 (defn ast&interface->identifying-datalog-clauses
   [ast interface-name]
   (-> ast
@@ -824,21 +793,10 @@
           '()
           entity))
 
-(s/def :datomic/find vector?)
-(s/def :datomic/where vector?)
-(s/def :datomic/q-fn
-  (s/fspec :args (s/cat :query (s/with-gen
-                                  (s/or :map-query (s/keys :req-un [:datomic/find :datomic/where])
-                                        :array-query vector?)
-                                  #(gen/return {:find '[?e .] :where '[[?e :db/id]]}))
-                         :db (s/coll-of (s/tuple :db/id keyword? any?))
-                         :params (s/* any?))
-            :ret any?))
-
 (s/fdef entity->interfaces
         :args (s/cat :ast :interface/ast
                      :entity (s/map-of keyword? any?)
-                     :datomic-q :datomic/q-fn)
+                     :datomic-q :datomic.api/q)
         :ret (s/coll-of keyword? :kind set?))
 (defn entity->interfaces
   "Given an `entity` and our `ast`, return the set of interfaces this entity satisfies."
@@ -857,7 +815,7 @@
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?
                      :entity (s/map-of keyword? any?)
-                     :datomic-q :datomic/q-fn)
+                     :datomic-q :datomic.api/q)
         :ret boolean?)
 (defn satisfies-interface?
   "Returns true if entity satisfies a data interface named `interface-name` defined in `ast`."
