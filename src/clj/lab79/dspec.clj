@@ -571,7 +571,7 @@
                                                                    :arity-1 :gen/generator-factory-with-member)))
         :ret any?)
 (defn- field->clojure-specs
-  "Returns the clojure.spec macro for the given `field`, with an optional `custom-generator-factory`"
+  "Returns the clojure.spec for the given `field`, with an optional `custom-generator-factory`"
   [field custom-generator-factory]
   (let [{:db/keys [ident cardinality]
          :interface.ast.field/keys [type possible-enum-vals]} field
