@@ -85,8 +85,8 @@
 (s/def :interface.def.field.enum/vals
   (s/alt :just-vals     :interface.def.field.enum/vals-no-doc
          :vals-with-doc :interface.def.field.enum/vals-with-doc))
-(s/def :interface.def.field.enum/vals-no-doc (s/coll-of keyword? :kind set?))
-(s/def :interface.def.field.enum/vals-with-doc (s/map-of keyword? string?))
+(s/def :interface.def.field.enum/vals-no-doc (s/coll-of keyword? :kind set? :min-count 1))
+(s/def :interface.def.field.enum/vals-with-doc (s/map-of keyword? string? :min-count 1))
 
 ;
 ; clojure.spec for defining custom generator maps for our fields
