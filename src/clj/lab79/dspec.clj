@@ -44,7 +44,9 @@
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
                                          :identify-via/datalog-clause (s/coll-of :datalog/where-clause :kind vector? :min-count 1)))
 (s/def :db/part (s/with-gen (s/and keyword? #(= (namespace %) "db.part"))
-                            (gen/fmap #(keyword "db.part" %) (gen/string-alphanumeric))))
+                            #(gen/fmap (fn [string] (keyword "db.part" string))
+                                        (gen/such-that (comp not clojure.string/blank?)
+                                                       (gen/string-alphanumeric)))))
 (s/def :interface.def/identifying-enum-part :db/part)
 (s/def :interface.def.field/trait
   (s/alt :doc           :db/doc
