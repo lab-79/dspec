@@ -17,10 +17,11 @@
 ;
 
 (s/def :interface/def
-  (s/and (s/keys :req [:interface.def/name :interface.def/fields :interface.def/identify-via])
-         (s/or :id-via-dspec-interfaces (s/and #(= (:interface.def/identify-via %) :datomic-spec/interfaces)
+  (s/and (s/keys :req [:interface.def/name :interface.def/fields :interface.def/identify-via]
+                 :opt [:interface.def/identifying-enum-part])
+         (s/or :id-via-dspec-interfaces (s/and #(= (% :interface.def/identify-via) [:identify-via/reserved-attribute :datomic-spec/interfaces])
                                                #(contains? % :interface.def/identifying-enum-part))
-               :id-via-attr #(not= (:interface.def/identify-via %) :datomic-spec/interfaces))))
+               :id-via-attr #(= (-> % :interface.def/identify-via first) :identify-via/datalog-clause))))
 (s/def :interface.def/name keyword?)
 (s/def :interface.def/fields (s/map-of keyword? :interface.def/field))
 (s/def :interface.def/field (s/+ :interface.def.field/trait))
