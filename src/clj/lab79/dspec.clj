@@ -71,7 +71,17 @@
 (def ^:private semantic-value-types (into #{} (map (comp keyword name)) datomic-value-types))
 (s/def :interface.def.field/single-non-enum-type
   (s/alt :db-value-type semantic-value-types
-         :interface-type keyword?))
+
+         ; Before, we just had keyword? for :interface-type.
+         ; We need the additonal predicate added by `(s/and ...)`. Otherwise, we
+         ; got the following at the REPL:
+         ;
+         ; >> (->> (s/conform :interface.def/field [[:enum] #{:A} [:enum] #{:*}]))
+         ; => [[:many-type [:enum {:flag [:enum], :vals [:just-vals #{:A}]}]] [[:many-type [:enum {:flag [:enum], :vals [:just-vals #{:*}]}]]]]
+         ;
+         ; For some reason, two re's that could both match an input would cause this double vector (see second element above)
+         :interface-type (s/and keyword?
+                                (comp not (conj semantic-value-types :enum)))))
 (s/def :interface.def.field.enum/vals
   (s/alt :just-vals     :interface.def.field.enum/vals-no-doc
          :vals-with-doc :interface.def.field.enum/vals-with-doc))
