@@ -804,7 +804,7 @@
 
 (s/fdef entity->interfaces
         :args (s/cat :ast :interface/ast
-                     :entity (s/map-of keyword? any?)
+                     :entity (s/keys :req [:db/id])
                      :datomic-q :datomic.api/q)
         :ret (s/coll-of keyword? :kind set?))
 (defn entity->interfaces
