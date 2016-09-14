@@ -141,9 +141,7 @@
   {:keyword keyword?, :string string?, :boolean boolean?, :long number?, :bigint integer?, :float float?,
    :double float?, :bigdec integer?, :instant inst?, :uuid uuid?, :uri uri?, :bytes bytes?})
 
-(s/def :interface.ast.field/type (s/with-gen
-                                   keyword?
-                                   #(s/gen (set (keys ast-field-type->predicate)))))
+(s/def :interface.ast.field/type keyword?)
 
 (s/def :interface.ast.field/possible-enum-vals (s/+ keyword?))
 
