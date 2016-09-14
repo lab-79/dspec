@@ -16,7 +16,7 @@
 ; Special Datomic attributes
 ;
 
-(s/def :db/ident (s/with-gen keyword? #(tcgen/resize 2 tcgen/keyword-ns)))
+(s/def :db/ident (s/with-gen keyword? #(tcgen/resize 2 (gen/keyword-ns))))
 (s/def :db/valueType datomic-value-types)
 (s/def :db/cardinality #{:db.cardinality/one :db.cardinality/many})
 (s/def :db/doc string?)
@@ -98,8 +98,8 @@
                                          :where :datalog/where)))
 (s/def :datomic.api/q
   (s/fspec :args (s/cat :query (s/with-gen
-                                 (s/alt :map-query :datomic/map-query
-                                        :vector-query :datomic/vec-query)
+                                 (s/or :map-query :datomic/map-query
+                                       :vector-query :datomic/vec-query)
                                  #(gen/return {:find ['?e '.] :where [['?e :db/id]]})
                                  ;#(s/gen :datomic/map-query)
                                  )
