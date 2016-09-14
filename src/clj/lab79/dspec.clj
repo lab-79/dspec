@@ -390,14 +390,7 @@
         (if-not (contains? valid-types type)
           (throw (ex-info (str "Invalid attribute type " type)
                           {:interface-name interface-name
-                           :field field})))
-        (if (= type :enum)
-          (let [undeclared-enums (clojure.set/difference (:interface.ast.field/possible-enum-vals field) enum-vals)]
-            (if (seq undeclared-enums)
-              (throw (ex-info "Undeclared enums"
-                              {:undeclared-enums undeclared-enums
-                               :interface-name interface-name
-                               :field field})))))))))
+                           :field field})))))))
 
 (s/fdef semantic-spec-coll->semantic-ast
         :args (s/cat :specs (s/spec (s/+ :interface/def)))
