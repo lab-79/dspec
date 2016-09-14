@@ -1105,7 +1105,7 @@
 
 (let [specs [{:interface.def/name :interface/string-generator
               :interface.def/fields {:string-generator/str [:string]}
-              :interface.def/identify-via [['? :string-generator/str]]}]
+              :interface.def/identify-via [['?e :string-generator/str]]}]
       ast (semantic-spec-coll->semantic-ast specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-attributes-should-always-generate-non-empty-strings
@@ -1115,7 +1115,7 @@
 
 (let [specs [{:interface.def/name :interface/string-coll-generator
               :interface.def/fields {:string-coll-generator/strings [[:string]]}
-              :interface.def/identify-via [['? :string-coll-generator/strings]]}]
+              :interface.def/identify-via [['?e :string-coll-generator/strings]]}]
       ast (semantic-spec-coll->semantic-ast specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-coll-attribute-should-always-generate-non-empty-strings
