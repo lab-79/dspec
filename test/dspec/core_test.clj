@@ -1070,6 +1070,27 @@
             data (gen/sample (s/gen :interface/carpenter))]
         (d/with db data)))))
 
+(deftest generating-clojure-spec-defs-for-attr-identifying-interfaces-with-custom-gens-from-inherited-inerfaces
+  (let [specs [{:interface.def/name :interface/parent-of-child-with-identifying-attr
+                :interface.def/fields {:parent-xx/name [:string :required]}
+                :interface.def/identify-via [['?e :parent-xx/name]]}
+               {:interface.def/name :interface/child-with-identifying-attr
+                :interface.def/fields {:child-xx/name [:string :required]}
+                :interface.def/identify-via [['?e :child-xx/name]]
+                :interface.def/inherits [:interface/parent-of-child-with-identifying-attr]}]
+        ast (semantic-spec-coll->semantic-ast specs)
+        custom-gens
+          {:interface/parent-of-child-with-identifying-attr (fn [base-spec-factory]
+                                                              (gen/fmap
+                                                                (fn [gen-parent]
+                                                                  (merge gen-parent
+                                                                         {:parent-xx/name "custom name"}))
+                                                                (s/gen (base-spec-factory))))}]
+    (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
+    (let [child (gen/generate (s/gen :interface/child-with-identifying-attr))]
+      (is (= "custom name" (:parent-xx/name child)))
+      (is (not-empty (:child-xx/name child))))))
+
 (deftest unique-field-with-no-custom-generator-should-throw
   (let [specs [{:interface.def/name :interface/unique-field-no-generator
                 :interface.def/fields {:obj/unique-field-no-generator [:keyword :db.unique/identity]
