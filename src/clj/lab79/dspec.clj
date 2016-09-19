@@ -42,7 +42,7 @@
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
 
 (s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
-                                         :identify-via/datalog-clause (s/coll-of :datalog/where-clause :kind vector? :min-count 1)))
+                                         :identify-via/datalog-clause :datomic.query.kv/where))
 (s/def :db/part (s/with-gen (s/and keyword? #(= (namespace %) "db.part"))
                             #(gen/fmap (fn [string] (keyword "db.part" string))
                                         (gen/such-that (comp not clojure.string/blank?)
@@ -110,7 +110,7 @@
 (s/def :interface.ast.interface/name keyword?)
 (s/def :interface.ast.interface/fields (s/map-of keyword? :interface.ast/field))
 (s/def :interface.ast.interface/inherits (s/coll-of keyword? :kind set?))
-(s/def :interface.ast.interface/identify-via (s/coll-of :datalog/where-clause :kind vector? :min-count 1))
+(s/def :interface.ast.interface/identify-via (s/coll-of :datalog/clause :kind vector? :min-count 1))
 
 (s/def :interface.ast/enum-map
   (s/map-of keyword? :interface.ast/enum))
@@ -766,7 +766,7 @@
 (s/fdef ast&interface->identifying-datalog-clauses
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?)
-        :ret (s/coll-of :datalog/where-clause :kind vector?))
+        :ret (s/coll-of :datalog/clause :kind vector?))
 (defn ast&interface->identifying-datalog-clauses
   [ast interface-name]
   (-> ast
