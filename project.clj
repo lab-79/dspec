@@ -11,7 +11,7 @@
                  [com.rpl/specter "0.12.0"]
                  [com.stuartsierra/dependency "0.2.0"]
                  [org.clojure/test.check "0.9.0"]
-                 [lab79.datomic-spec "0.1.2"]
+                 [lab79/datomic-spec "0.1.2"]
                  ]
   :profiles {:dev {:dependencies
                     [
