@@ -5,11 +5,11 @@
             [clojure.test.check.generators :refer [generator?]]
             [com.stuartsierra.dependency :as ssdep]
             [com.rpl.specter :refer [MAP-VALS collect-one]]
-            [com.rpl.specter.macros :refer [select traverse select-first]]
             [lab79.dspec.util :refer [arity filter-kv]]
             [lab79.datomic-spec :refer [datomic-value-types
                                         datomic-schema-keys]]
-            [lab79.dspec.gen :refer [ensure-keys-gen fn->gen]]))
+            [lab79.dspec.gen :refer [ensure-keys-gen fn->gen]])
+  (:use [com.rpl.specter :only [select traverse select-first]]))
 
 
 ;
