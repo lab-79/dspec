@@ -403,17 +403,47 @@ particular entity or map loaded into memory satisfies:
 ; => #{}
 ```
 
+`(lab79.dspec/satisfies-interface? ast interface-name entity datomic-q)`
+
 ```clojure
 (let [entity {:db/id (datomic/tempid :db.part/user)
               :automobile/make "Toyota"
               :automobile/model "Prius"}]
-(lab79.dspec/satisfies-interface? ast :interface/automobile entity datomic.api/q)
+  (lab79.dspec/satisfies-interface? ast :interface/automobile entity datomic.api/q))
 ; => true
 
 (let [entity {:db/id (datomic/tempid :db.part/user)}]
-(lab79.dspec/satisfies-interface? ast :interface/automobile entity datomic.api/q)
+  (lab79.dspec/satisfies-interface? ast :interface/automobile entity datomic.api/q))
 ; => false
 ```
+
+`(lab79.dspec/eid-satisfies-interface? ast interface-name entity-id datomic-q datomic-filter db)`
+
+```clojure
+(let [entity {:db/id (datomic/tempid :db.part/user)
+              :automobile/make "Toyota"
+              :automobile/model "Prius"}
+      tempid (:db/id entity)
+      {db :db-after
+      tempids :tempids} @(d/transact conn [entity])
+      eid (d/resolve-tempid db tempids tempid)]
+  (lab79.dspec/eid-satisfies-interface? ast :interface/automobile eid datomic.api/q datomic.api/filter db))
+; => true
+```
+
+If you want to incorporate the query clauses to limit your Datomic query to a
+given set of interfaces, you can use `identify-via-clauses-for`, swapping in
+your own custom entity id symbol (e.g., `?xx` in the following example):
+
+```clojure
+(datomic.api/q {:find '[?xx ...]
+                :where (conj (identify-via-clauses-for ast '?xx :interface/xx)
+                             ['?xx :other/attribute :x/y])})
+```
+
+The prior example finds the collection of entity ids that satisfy interface
+`:interface/xx` and that also have an attribute `:other/attribute` with value
+equal to `:x/y`.
 
 
 ### Converting Data Interfaces to Datomic Schemas
