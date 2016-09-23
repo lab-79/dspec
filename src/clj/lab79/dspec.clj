@@ -833,3 +833,37 @@
         {:keys [interface.ast.interface/identify-via]} (-> ast :interface.ast/interfaces interface-name)]
     (and (some? (datomic-q {:find '[?e .] :where identify-via} datoms))
          (s/valid? interface-name entity))))
+
+(s/fdef eid-satisfies-interface?
+        :args (s/cat :ast :interface/ast
+                     :interface-name keyword?
+                     :eid :db/id
+                     :datomic-q :datomic.api/q
+                     ; TODO Get more specific than fn?
+                     :datomic-filter fn?
+                     :db any?)
+        :ret boolean?)
+(defn eid-satisfies-interface?
+  "Like satisfies-interface? but works on an entity id instead of an entity.
+  Returns true if the entity represented by the entity id `eid` satisfies
+  the interface `interface-name`."
+  [ast interface-name eid datomic-q datomic-filter db]
+  (let [{:keys [interface.ast.interface/identify-via]} (-> ast :interface.ast/interfaces interface-name)]
+    (some? (datomic-q {:find '[?e .]
+                       :where identify-via}
+                      (datomic-filter db (fn [_ datom]
+                                           (= eid (.e datom))))))))
+
+(s/fdef identify-via-clauses-for
+        :args (s/cat :ast :interface/ast
+                     :interface-names (s/+ keyword?))
+        :ret (s/coll-of :datalog/clause))
+(defn identify-via-clauses-for
+  [ast & interface-names]
+  (mapcat
+    (fn [interface-name]
+      (-> ast
+          :interface.ast/interfaces
+          interface-name
+          :interface.ast.interface/identify-via))
+    interface-names))

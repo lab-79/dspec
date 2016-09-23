@@ -125,7 +125,40 @@
                                           :interface/eponym
                                           {:db/id (d/tempid :db.part/user)
                                            :datomic-spec/interfaces #{:interface/eponym}}
-                                          d/q)))))))
+                                          d/q)))))
+    (testing "detecting interfaces of entity ids"
+      (register-specs-for-ast! ast d/tempid db-id?)
+      (testing "not satisfying"
+        (let [{:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+              tempid (d/tempid :db.part/user)
+              {tempids :tempids
+               db :db-after} (-> (d/db *conn*)
+                                 (d/with partition-schema)
+                                 :db-after
+                                 (d/with enum-schema)
+                                 :db-after
+                                 (d/with field-schema)
+                                 :db-after
+                                 (d/with [{:db/id tempid
+                                           :eponym/required-attr :k/w}]))
+              eid (d/resolve-tempid db tempids tempid)]
+          (is (false? (eid-satisfies-interface? ast :interface/eponym eid d/q d/filter db)))))
+      (testing "satisfying"
+        (let [{:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+              generated-eponym (gen/generate (s/gen :interface/eponym))
+              tempid (:db/id generated-eponym)
+              {tempids :tempids
+               db :db-after} (-> (d/db *conn*)
+                                 (d/with partition-schema)
+                                 :db-after
+                                 (d/with enum-schema)
+                                 :db-after
+                                 (d/with field-schema)
+                                 :db-after
+                                 (d/with [generated-eponym]))
+              eid (d/resolve-tempid db tempids tempid)]
+          (is (eid-satisfies-interface? ast :interface/eponym eid d/q d/filter db))))
+      )))
 
 
 (deftest id-via-attribute
