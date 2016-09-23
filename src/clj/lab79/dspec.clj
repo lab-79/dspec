@@ -856,14 +856,16 @@
 
 (s/fdef identify-via-clauses-for
         :args (s/cat :ast :interface/ast
+                     :eid-symbol symbol?
                      :interface-names (s/+ keyword?))
         :ret (s/coll-of :datalog/clause))
 (defn identify-via-clauses-for
-  [ast & interface-names]
+  [ast eid-symbol & interface-names]
   (mapcat
     (fn [interface-name]
-      (-> ast
-          :interface.ast/interfaces
-          interface-name
-          :interface.ast.interface/identify-via))
+      (->> ast
+           :interface.ast/interfaces
+           interface-name
+           :interface.ast.interface/identify-via
+           (clojure.walk/postwalk #(if (= '?e %) eid-symbol %))))
     interface-names))

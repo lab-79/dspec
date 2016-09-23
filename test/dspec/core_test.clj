@@ -198,7 +198,10 @@
                                           :interface/id-by-attr
                                           {:db/id (d/tempid :db.part/user)
                                            :obj/identifying-attr :k/w}
-                                          d/q)))))))
+                                          d/q)))))
+    (testing "looking up identify via clauses"
+      (is (= '[[?xx :obj/identifying-attr]]
+             (identify-via-clauses-for ast '?xx :interface/id-by-attr))))))
 
 (deftest semantic-spec-with-keyword-field
   (let [spec {:interface.def/name :interface/entity-with-keyword
