@@ -361,7 +361,7 @@ this out. We can leverage attributes to identify entities in one of two ways.
     the entity may have (besides `:db/id`) is `:person/name`. In this case, the only
     way we could also identify a person as also being a patient is if we maintain an
     attribute that the entity can use to self-label itself as an `:interface/patient`.
-    That special, reserved attribute is `:datomic-spec/interfaces`. It's Datomic schema
+    That special, reserved attribute is `:datomic-spec/interfaces`. Its Datomic schema
     looks like:
 
     ```clojure
