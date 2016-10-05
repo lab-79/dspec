@@ -159,8 +159,21 @@
 
 (s/def :interface/field-def-parser
   (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
+
+(s/fdef update-field-ast&enum-map
+        :args (s/cat :field-ast&enum-map (s/and #(contains? % :interface.ast/field)
+                                                #(contains? % :interface.ast/enum-map))
+                     :conformed-field-tag-kv (s/tuple keyword? any?))
+        :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
+(defmulti update-field-ast&enum-map (fn [field-ast&enum-map [tag-alias conformed-tag-value]]
+                                      tag-alias))
+(defmethod update-field-ast&enum-map :should-generate
+  [field-ast&enum-map _]
+  (assoc-in field-ast&enum-map [:interface.ast/field :gen/should-generate] true))
 (s/fdef field-def->ast-field&enum-map
-        :args (s/cat :field-def (s/spec :interface.def/field) :field-name keyword?)
+        :args (s/cat :field-def (s/spec :interface.def/field)
+                     :field-name keyword?
+                     :custom-tags (s/? (s/coll-of keyword? :kind set?)))
         :ret (s/keys :req [:interface.ast/field :interface.ast/enum-map]))
 (defn- field-def->ast-field&enum-map
   "Given the field definition portion of an interface defintion, return the ast representation of the field and the
@@ -190,89 +203,94 @@
                             :blue {:db/ident :blue}}}
   ```
   "
-  [field-def field-name]
-  (let [field-tags (s/conform :interface.def/field field-def)
-        parsed {:interface.ast/field {:db/ident field-name}
-                :interface.ast/enum-map {}}]
-    (reduce
-      (fn [parsed conform-output]
-        (match conform-output
-               [:doc doc] (assoc-in parsed [:interface.ast/field :db/doc] doc)
-               [:single-type
-                [:non-enum
-                 [:db-value-type db-value-type]]] (-> parsed
-                                                      (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
-                                                      (assoc-in [:interface.ast/field :db/valueType] (keyword "db.type" (name db-value-type)))
-                                                      (assoc-in [:interface.ast/field :interface.ast.field/type] db-value-type))
-               [:single-type
-                [:non-enum
-                 [:interface-type interface-type]]] (-> parsed
-                                                        (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
-                                                        (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
-                                                        (assoc-in [:interface.ast/field :interface.ast.field/type] interface-type))
-               [:single-type
-                [:enum
-                 {:vals
-                  [:just-vals values]}]] (-> parsed
-                                             (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
-                                             (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
-                                             (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                             (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set values))
-                                             (update :interface.ast/enum-map into (map (fn [kw] [kw {:db/ident kw}])) values))
-               [:single-type
-                [:enum
-                 {:vals
-                  [:vals-with-doc kw->doc]}]] (-> parsed
+  ([field-def field-name]
+   (field-def->ast-field&enum-map field-def field-name #{:should-generate}))
+  ([field-def field-name custom-tags]
+   (let [field-tags (s/conform :interface.def/field field-def)
+         {custom-tag-pairs true
+          default-tag-pairs false} (group-by (fn [[tag _]] (contains? custom-tags tag)) field-tags)]
+     (letfn [(parse-default-tag-pair
+               [parsed conform-output]
+               (match conform-output
+                      [:doc doc] (assoc-in parsed [:interface.ast/field :db/doc] doc)
+                      [:single-type
+                       [:non-enum
+                        [:db-value-type db-value-type]]] (-> parsed
+                                                             (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
+                                                             (assoc-in [:interface.ast/field :db/valueType] (keyword "db.type" (name db-value-type)))
+                                                             (assoc-in [:interface.ast/field :interface.ast.field/type] db-value-type))
+                      [:single-type
+                       [:non-enum
+                        [:interface-type interface-type]]] (-> parsed
+                                                               (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
+                                                               (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
+                                                               (assoc-in [:interface.ast/field :interface.ast.field/type] interface-type))
+                      [:single-type
+                       [:enum
+                        {:vals
+                         [:just-vals vals]}]] (-> parsed
                                                   (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
                                                   (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
                                                   (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                                  (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set (keys kw->doc)))
-                                                  (update :interface.ast/enum-map
-                                                          into (map (fn [[kw doc]] [kw {:db/ident kw :db/doc doc}])) kw->doc))
-               [:many-type
-                [:non-enum
-                 {:member-type
-                  [:db-value-type db-value-type]}]] (-> parsed
-                                                        (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
-                                                        (assoc-in [:interface.ast/field :db/valueType] (keyword "db.type" (name db-value-type)))
-                                                        (assoc-in [:interface.ast/field :interface.ast.field/type] db-value-type))
-               [:many-type
-                [:non-enum
-                 {:member-type
-                  [:interface-type interface-type]}]] (-> parsed
-                                                          (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
-                                                          (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
-                                                          (assoc-in [:interface.ast/field :interface.ast.field/type] interface-type))
-               [:many-type
-                [:enum
-                 {:vals
-                  [:just-vals values]}]] (-> parsed
-                                             (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
-                                             (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
-                                             (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                             (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set values))
-                                             (update :interface.ast/enum-map into (map (fn [kw] [kw {:db/ident kw}])) values))
-
-               [:many-type
-                [:enum
-                 {:vals
-                  [:vals-with-doc kw->doc]}]] (-> parsed
+                                                  (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} vals))
+                                                  (update :interface.ast/enum-map into (map (fn [kw] [kw {:db/ident kw}])) vals))
+                      [:single-type
+                       [:enum
+                        {:vals
+                         [:vals-with-doc kw->doc]}]] (-> parsed
+                                                         (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/one)
+                                                         (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
+                                                         (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
+                                                         (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} (keys kw->doc)))
+                                                         (update :interface.ast/enum-map
+                                                                 into (map (fn [[kw doc]] [kw {:db/ident kw :db/doc doc}])) kw->doc))
+                      [:many-type
+                       [:non-enum
+                        {:member-type
+                         [:db-value-type db-value-type]}]] (-> parsed
+                                                               (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
+                                                               (assoc-in [:interface.ast/field :db/valueType] (keyword "db.type" (name db-value-type)))
+                                                               (assoc-in [:interface.ast/field :interface.ast.field/type] db-value-type))
+                      [:many-type
+                       [:non-enum
+                        {:member-type
+                         [:interface-type interface-type]}]] (-> parsed
+                                                                 (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
+                                                                 (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
+                                                                 (assoc-in [:interface.ast/field :interface.ast.field/type] interface-type))
+                      [:many-type
+                       [:enum
+                        {:vals
+                         [:just-vals vals]}]] (-> parsed
                                                   (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
                                                   (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
                                                   (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
-                                                  (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (set (keys kw->doc)))
-                                                  (update :interface.ast/enum-map
-                                                          into (map (fn [[kw doc]] [kw {:db/ident kw :db/doc doc}])) kw->doc))
+                                                  (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} vals))
+                                                  (update :interface.ast/enum-map into (map (fn [kw] [kw {:db/ident kw}])) vals))
 
-               [:unique val] (assoc-in parsed [:interface.ast/field :db/unique] val)
-               [:is-component _] (assoc-in parsed [:interface.ast/field :db/isComponent] true)
-               [:should-index _] (assoc-in parsed [:interface.ast/field :db/index] true)
-               [:should-generate _] (assoc-in parsed [:interface.ast/field :gen/should-generate] true)
-               [:no-history _] (assoc-in parsed [:interface.ast/field :db/noHistory] true)
-               [:fulltext _] (assoc-in parsed [:interface.ast/field :db/fulltext] true)
-               [:required _] (assoc-in parsed [:interface.ast/field :interface.ast.field/required] true)))
-      parsed
-      field-tags)))
+                      [:many-type
+                       [:enum
+                        {:vals
+                         [:vals-with-doc kw->doc]}]] (-> parsed
+                                                         (assoc-in [:interface.ast/field :db/cardinality] :db.cardinality/many)
+                                                         (assoc-in [:interface.ast/field :db/valueType] :db.type/ref)
+                                                         (assoc-in [:interface.ast/field :interface.ast.field/type] :enum)
+                                                         (assoc-in [:interface.ast/field :interface.ast.field/possible-enum-vals] (into #{} (keys kw->doc)))
+                                                         (update :interface.ast/enum-map
+                                                                 into (map (fn [[kw doc]] [kw {:db/ident kw :db/doc doc}])) kw->doc))
+
+                      [:unique val] (assoc-in parsed [:interface.ast/field :db/unique] val)
+                      [:is-component _] (assoc-in parsed [:interface.ast/field :db/isComponent] true)
+                      [:should-index _] (assoc-in parsed [:interface.ast/field :db/index] true)
+                      ;[:should-generate _] (assoc-in parsed [:interface.ast/field :gen/should-generate] true)
+                      [:no-history _] (assoc-in parsed [:interface.ast/field :db/noHistory] true)
+                      [:fulltext _] (assoc-in parsed [:interface.ast/field :db/fulltext] true)
+                      [:required _] (assoc-in parsed [:interface.ast/field :interface.ast.field/required] true)))]
+       (as-> {:interface.ast/enum-map {}
+              :interface.ast/field {:db/ident field-name}} parsed
+
+             (reduce update-field-ast&enum-map parsed custom-tag-pairs)
+             (reduce parse-default-tag-pair parsed default-tag-pairs))))))
 
 (s/fdef semantic-spec->semantic-ast
         :args (s/cat :spec :interface/def)
@@ -450,6 +468,7 @@
 (s/def :cljspec/spec s/spec?)
 (s/def :dspec/gen-factory (s/fspec :args (s/cat)
                                    :ret generator?))
+; TODO Replace dummy with more precise fspec
 (s/def :dummy/gen-factory fn?)
 (s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
@@ -465,6 +484,8 @@
         all-fields (ast&interface->ast-fields ast interface)
         {req-fields true, opt-fields nil
          :or {req-fields [] opt-fields []}} (group-by :interface.ast.field/required all-fields)
+        ;_ (gen/fmap (fn [& maps] (apply merge maps))
+        ;            (gen/tuple ))
         custom-generator-factory (if-let [custom-generator-factory (get gen-map interface-name)]
                                    custom-generator-factory
                                    (if-let [gen-fields (seq (filter :gen/should-generate all-fields))]
@@ -709,6 +730,7 @@
                            (map first)
                            ; Let's consider only the names of the fields
                            )]
+
     (doseq [field-name unique-fields]
       (if-not (contains? gen-map field-name)
         (throw (ex-info (str "You should provide a custom generator to the unique attribute " (str field-name))
