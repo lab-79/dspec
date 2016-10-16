@@ -1,8 +1,9 @@
 (ns dspec.util-test
-  (:require [clojure.test :refer :all]
-            [lab79.dspec.util :refer :all]
-            [clojure.spec.test :as stest]
-            ))
+  (:require [clojure.test :refer [deftest is]]
+            lab79.dspec.util
+            [clojure.spec.test :as stest]))
+
+#?(:cljs (enable-console-print!))
 
 ; Instrument all our functions in dspec
 (-> 'lab79.dspec.util

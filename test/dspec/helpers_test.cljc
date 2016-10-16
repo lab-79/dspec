@@ -1,16 +1,22 @@
 (ns dspec.helpers-test
-  (:require [clojure.test :refer :all]
-            [clojure.spec.test :as stest]
-            [lab79.dspec.helpers :refer :all]
-            [clojure.spec :as s]
-            [clojure.spec.gen :as gen]
-            [datomic.api :as d]
+  #?(:cljs (:require-macros [cljs.core :refer [doseq]]
+                            [cljs.spec.test :as stest]))
+  (:require [clojure.test :refer [deftest is]]
+            #?(:clj [clojure.spec.test :as stest]
+               :cljs cljs.spec.test)
+            [lab79.dspec.helpers :refer [specs->datomic create-clojure-specs!
+                                         create-clojure-specs-with-custom-generators!]]
+            #?(:clj  [clojure.spec.gen :as gen]
+               :cljs [cljs.spec.impl.gen :as gen])
+            #?(:clj  [datomic.api :as d]
+               :cljs [datascript.core :as d])
             [dspec.util :refer [db-id?]]))
 
+#?(:cljs (enable-console-print!))
+
 ; Instrument all our functions in dspec
-(doseq [nspace ['lab79.dspec 'lab79.dspec.helpers]]
-  (-> (stest/enumerate-namespace nspace)
-    stest/instrument))
+(stest/instrument (stest/enumerate-namespace 'lab79.dspec))
+(stest/instrument (stest/enumerate-namespace 'lab79.dspec.helpers))
 
 (let [specs [#:interface.def{:name :interface/helper-a
                              :fields {:helper-a/key [:keyword :gen/should-generate]}

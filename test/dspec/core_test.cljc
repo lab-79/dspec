@@ -1,27 +1,46 @@
 (ns dspec.core-test
-  (:require [clojure.test :refer :all]
+  #?(:cljs (:require-macros cljs.spec))
+  (:require #?(:clj  [clojure.test :refer [deftest testing is use-fixtures]]
+               :cljs [cljs.test :refer-macros [deftest testing is use-fixtures]])
             [clojure.test.check :as tc]
-            [clojure.test.check.clojure-test :refer [defspec]]
+            #?(:clj  [clojure.test.check.clojure-test :refer [defspec]]
+               :cljs [clojure.test.check.clojure-test :refer-macros [defspec]])
             [clojure.test.check.generators :as tcgen :refer [generator?]]
-            [clojure.test.check.properties :as prop]
+            #?(:clj  [clojure.test.check.properties :refer [for-all]]
+               :cljs [clojure.test.check.properties :refer-macros [for-all]])
             [clojure.spec.test :as stest]
-            [lab79.dspec :refer :all]
+            [lab79.dspec :refer [semantic-spec->semantic-ast semantic-spec-coll->semantic-ast register-specs-for-ast!
+                                 satisfies-interface? NATIVE-TYPES semantic-ast->datomic-schemas entity->interfaces
+                                 eid-satisfies-interface? identify-via-clauses-for
+                                 register-specs-for-ast-with-custom-generators!
+                                 ast&interface->identifying-datalog-clauses]]
             [lab79.dspec.gen :refer [ensure-keys-gen]]
-            [clojure.spec :as s]
-            [clojure.spec.gen :as gen]
-            [datomic.api :as d]
+            #?(:clj  [clojure.spec :as s]
+               :cljs [cljs.spec :as s])
+            #?(:clj  [clojure.spec.gen :as gen]
+               :cljs [cljs.spec.impl.gen :as gen])
+            #?(:clj  [datomic.api :as d]
+               :cljs [datascript.core :as d])
             [lab79.datomic-spec.gen-overrides :refer [sized-overrides-for]]
             [dspec.util :refer [db-id?]]))
+
+#?(:cljs (enable-console-print!))
 
 (def ^:dynamic *conn* nil)
 
 (defn- setup&teardown-db
   [f]
+  #?(
+  :clj
   (let [db-uri (str "datomic:mem://" (gensym))]
     (d/create-database db-uri)
     (binding [*conn* (d/connect db-uri)]
       (f))
-    (d/delete-database db-uri)))
+    (d/delete-database db-uri))
+  :cljs
+  (let [db (d/empty-db)]
+    (binding [*conn* (d/create-conn db)]
+      (f)))))
 
 (use-fixtures :once setup&teardown-db)
 
@@ -102,8 +121,10 @@
                                 :in $ ?enum
                                 :where [?e :db/ident ?enum]]
                               db :interface/eponym)
-                partition-eid (d/part enum-eid)
-                partition-name (get-partition-name db partition-eid)]
+                partition-eid #?(:clj  (d/part enum-eid)
+                                 :cljs nil)
+                partition-name #?(:clj  (get-partition-name db partition-eid)
+                                  :cljs :db.part/test)]
             (is (= partition-name :db.part/test))))))
     (testing "detecting interfaces of entities"
       (register-specs-for-ast! ast d/tempid db-id?)
@@ -472,7 +493,8 @@
     (testing "generating clojure.spec definitions"
       (register-specs-for-ast! ast d/tempid db-id?)
       (testing "for entity attributes"
-        (is (s/valid? :obj/uri-attr (java.net.URI/create "http://google.com/")))
+        (is (s/valid? :obj/uri-attr #?(:clj  (java.net.URI/create "http://google.com/")
+                                       :cljs "http://google.com/")))
         (is (false? (s/valid? :obj/uri-attr "google.com")))))))
 
 (deftest semantic-spec-with-bytes-field
@@ -497,7 +519,8 @@
     (testing "generating clojure.spec definitions"
       (register-specs-for-ast! ast d/tempid db-id?)
       (testing "for entity attributes"
-        (is (s/valid? :obj/bytes-attr (bytes (byte-array (map (comp byte int) "ascii")))))
+        (is #?(:clj  (s/valid? :obj/bytes-attr (bytes (byte-array (map (comp byte int) "ascii"))))
+               :cljs true))
         (is (false? (s/valid? :obj/bytes-attr "xyz")))))))
 
 (deftest semantic-spec-with-enum-field
@@ -1158,19 +1181,19 @@
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec parent-schemas-dont-generate-child-keys
            100
-           (prop/for-all [entity (s/gen :interface/mother)]
+           (for-all [entity (s/gen :interface/mother)]
                          (empty? (clojure.set/difference
                                    (set (keys entity))
                                    #{:db/id :person/personality :datomic-spec/interfaces}))))
   (defspec child-should-be-valid-according-to-parent-specs
            100
-           (prop/for-all [entity (s/gen :interface/child)]
+           (for-all [entity (s/gen :interface/child)]
                          (s/valid? :interface/child entity)
                          (s/valid? :interface/mother entity)
                          (s/valid? :interface/father entity)))
   (defspec child-should-self-label-itself-with-all-inherited-interfaces
            100
-           (prop/for-all [entity (s/gen :interface/child)]
+           (for-all [entity (s/gen :interface/child)]
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/child :interface/mother :interface/father}))))
 
@@ -1181,7 +1204,7 @@
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-attributes-should-always-generate-non-empty-strings
     100
-    (prop/for-all [string (s/gen :string-generator/str)]
+    (for-all [string (s/gen :string-generator/str)]
                   (is (pos? (count string))))))
 
 (let [specs [{:interface.def/name :interface/string-coll-generator
@@ -1191,7 +1214,7 @@
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-coll-attribute-should-always-generate-non-empty-strings
            100
-           (prop/for-all [strings (s/gen :string-coll-generator/strings)]
+           (for-all [strings (s/gen :string-coll-generator/strings)]
                          (is (every? #(pos? (count %)) strings))))
   (let [generators {:string-coll-generator/strings (fn [member-generator-factory]
                                                      (gen/set (member-generator-factory) {:min-elements 1
@@ -1199,7 +1222,7 @@
     (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?)
     (defspec string-coll-attribute-should-always-generate-non-empty-strings-with-custom-generator
              100
-             (prop/for-all [strings (s/gen :string-coll-generator/strings)]
+             (for-all [strings (s/gen :string-coll-generator/strings)]
                            (is (every? #(pos? (count %)) strings))))))
 
 
@@ -1254,7 +1277,7 @@
       (register-specs-for-ast! d/tempid db-id?))
   (defspec grandchild-should-self-label-with-all-transitive-inherited-interfaces
            100
-           (prop/for-all (entity (s/gen :interface/gen-3-grandchild))
+           (for-all (entity (s/gen :interface/gen-3-grandchild))
                          (= (:datomic-spec/interfaces entity)
                             #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
 
@@ -1329,5 +1352,5 @@
     (register-specs-for-ast! ast d/tempid db-id?)
     (defspec circular-interfaces-data-generation
              10
-             (prop/for-all (entity (s/gen :interface/x->y))
+             (for-all (entity (s/gen :interface/x->y))
                            (= (map? entity))))))
