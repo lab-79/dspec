@@ -42,16 +42,16 @@
 
 (s/fdef ensure-keys-gen
         :args (s/cat :keywords (s/+ keyword?))
-        :ret (s/fspec :args (s/cat :base-spec-factory (s/fspec :args (s/cat)
-                                                                :ret s/spec?))
+        :ret (s/fspec :args (s/cat :base-gen-factory (s/fspec :args (s/cat)
+                                                              :ret generator?))
                       :ret generator?))
 
 (defn ensure-keys-gen
   "Returns a generator factory that ensures every generated map has at least
   the keys specified by `field-keys`."
   [& ensure-keys]
-  (fn [base-spec-factory]
-    (s/gen (s/merge (base-spec-factory)
-                    ; clojure.spec/keys is a macro so it can't take a symbol like `ensure-keys` directly
-                    (eval `(s/keys :req ~ensure-keys))
-                    ))))
+  (fn [base-gen-factory]
+    (gen/fmap
+      (partial apply merge)
+      ; clojure.spec/keys is a macro so it can't take a symbol like `ensure-keys` directly
+      (gen/tuple (base-gen-factory) (s/gen (eval `(s/keys :req ~ensure-keys)))))))

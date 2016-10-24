@@ -3,6 +3,7 @@
   (:require #?(:clj  [clojure.test :refer [deftest testing is use-fixtures]]
                :cljs [cljs.test :refer-macros [deftest testing is use-fixtures]])
             [clojure.test.check :as tc]
+            [clojure.pprint :refer [pprint]]
             #?(:clj  [clojure.test.check.clojure-test :refer [defspec]]
                :cljs [clojure.test.check.clojure-test :refer-macros [defspec]])
             [clojure.test.check.generators :as tcgen :refer [generator?]]
@@ -13,7 +14,8 @@
                                  satisfies-interface? NATIVE-TYPES semantic-ast->datomic-schemas entity->interfaces
                                  eid-satisfies-interface? identify-via-clauses-for
                                  register-specs-for-ast-with-custom-generators!
-                                 ast&interface->identifying-datalog-clauses]]
+                                 ast&interface->identifying-datalog-clauses
+                                 gen-with-max-depth]]
             [lab79.dspec.gen :refer [ensure-keys-gen]]
             #?(:clj  [clojure.spec :as s]
                :cljs [cljs.spec :as s])
@@ -886,7 +888,7 @@
                             (semantic-spec-coll->semantic-ast specs))))))
 
 (deftest dspecs-whose-generators-can-violate-their-specs
-  (testing "warn against generators that will potentially violate "
+  (testing "warn against generators that will potentially violate the associated spec"
     (let [specs [#:interface.def{:name :interface/violates-such-that
                                  :fields {:invalid/one [:keyword :required]}
                                  :identify-via [['?e :invalid/one]]}]
@@ -896,12 +898,20 @@
                                                       (gen/fmap
                                                         (fn [generated-maps]
                                                           (apply merge generated-maps))
-                                                        (gen/tuple (s/gen (base-gen-spec-factory))
+                                                        (gen/tuple ;(base-gen-spec-factory)
+                                                                   ;(s/gen (base-gen-spec-factory))
                                                                    (gen/return {:invalid/one nil}))))}
           ]
+      ; TODO Replace this assertion with the commented assertion under it, when test.check reaches 0.9.1,
+      ;      which includes a way to pass the predicate that is not being
+      ;      satisfied to an exception builder function
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo "nope"
+                            (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?)))
+      (comment
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Spec :interface/violates-such-that and/or its custom generators are defined in such a way that it is possible to generate data such that it does not satisfy the spec."
-                            (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?))))))
+                            (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?))))
+      )))
 
 (deftest semantic-spec-coll-with-circular-references
   (testing "interfaces with circular dependencies"
@@ -1153,12 +1163,12 @@
                 :interface.def/inherits [:interface/parent-of-child-with-identifying-attr]}]
         ast (semantic-spec-coll->semantic-ast specs)
         custom-gens
-          {:interface/parent-of-child-with-identifying-attr (fn [base-spec-factory]
+          {:interface/parent-of-child-with-identifying-attr (fn [base-gen-factory]
                                                               (gen/fmap
                                                                 (fn [gen-parent]
                                                                   (merge gen-parent
                                                                          {:parent-xx/name "custom name"}))
-                                                                (s/gen (base-spec-factory))))}]
+                                                                (base-gen-factory)))}]
     (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
     (let [child (gen/generate (s/gen :interface/child-with-identifying-attr))]
       (is (= "custom name" (:parent-xx/name child)))
@@ -1188,9 +1198,7 @@
   (defspec child-should-be-valid-according-to-parent-specs
            100
            (for-all [entity (s/gen :interface/child)]
-                         (s/valid? :interface/child entity)
-                         (s/valid? :interface/mother entity)
-                         (s/valid? :interface/father entity)))
+                         (and (s/valid? :interface/mother entity) (s/valid? :interface/father entity))))
   (defspec child-should-self-label-itself-with-all-inherited-interfaces
            100
            (for-all [entity (s/gen :interface/child)]
@@ -1219,6 +1227,7 @@
   (let [generators {:string-coll-generator/strings (fn [member-generator-factory]
                                                      (gen/set (member-generator-factory) {:min-elements 1
                                                                                           :max-elements 1}))}]
+    (println ast)
     (register-specs-for-ast-with-custom-generators! ast generators d/tempid db-id?)
     (defspec string-coll-attribute-should-always-generate-non-empty-strings-with-custom-generator
              100
@@ -1277,9 +1286,63 @@
       (register-specs-for-ast! d/tempid db-id?))
   (defspec grandchild-should-self-label-with-all-transitive-inherited-interfaces
            100
-           (for-all (entity (s/gen :interface/gen-3-grandchild))
-                         (= (:datomic-spec/interfaces entity)
-                            #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
+           (for-all [entity (s/gen :interface/gen-3-grandchild)]
+                    (= (:datomic-spec/interfaces entity)
+                       #{:interface/gen-3-grandparent :interface/gen-3-parent :interface/gen-3-grandchild}))))
+
+(defn entity-depth
+  ([entity]
+   (entity-depth entity 1))
+  ([entity curr-depth]
+   (->> entity
+        (filter (fn [[k _]] (not= k :db/id)))
+        (filter (fn [[k v]] (or (map? v)
+                                (and (coll? v) (seq v) (map? (first v))))))
+        (reduce (fn [curr-depth [k v]]
+                  (max curr-depth
+                       (cond
+                         (map? v)                                 (entity-depth v (inc curr-depth))
+                         (and (coll? v) (seq v) (map? (first v))) (entity-depth (first v) (inc curr-depth))
+                         :else                                    curr-depth)))
+                curr-depth))))
+(deftest test-entity-depth
+  (testing "no nesting"
+    (is (= 1 (entity-depth {:a 1}))))
+  (testing "nested maps"
+    (is (= 2 (entity-depth {:a {:b 1}})))
+    (is (= 3 (entity-depth {:a {:b {:c 1}}}))))
+  (testing "nested array of maps"
+    (is (= 2 (entity-depth {:a [{:b 1}]})))
+    (is (= 3 (entity-depth {:a [{:b [{:c 1}]}]})))))
+
+(let [nested-interface-specs [{:interface.def/name :interface/root-grandparent
+                               :interface.def/fields {:grandparent/child [:interface/nested-parent]}
+                               :interface.def/identify-via :datomic-spec/interfaces
+                               :interface.def/identifying-enum-part :db.part/user}
+                              {:interface.def/name :interface/nested-parent
+                               :interface.def/fields {:parent/child [:interface/nested-grandchild]}
+                               :interface.def/identify-via :datomic-spec/interfaces
+                               :interface.def/identifying-enum-part :db.part/user}
+                              {:interface.def/name :interface/nested-grandchild
+                               :interface.def/fields {:nested-grandchild/name [:string :required]}
+                               :interface.def/identify-via :datomic-spec/interfaces
+                               :interface.def/identifying-enum-part :db.part/user}]
+      ast (semantic-spec-coll->semantic-ast nested-interface-specs)
+      custom-generators {:nested-grandchild/name (fn [orig-gen] (gen/return "mike"))}]
+  (register-specs-for-ast-with-custom-generators! ast custom-generators d/tempid db-id?)
+  (defspec gen-with-max-depth-2-should-not-generate-more-than-max-depth
+    100
+    (for-all [entity (gen-with-max-depth ast {} 2 :interface/root-grandparent)]
+             (>= 2 (entity-depth entity))))
+  (defspec gen-with-max-depth-3-should-not-generate-more-than-max-depth
+    100
+    (for-all [entity (gen-with-max-depth ast {} 3 :interface/root-grandparent)]
+             (>= 3 (entity-depth entity))))
+  (defspec gen-with-max-depth-should-support-custom-generators
+    100
+    (for-all [entity (gen-with-max-depth ast {} 3 :interface/root-grandparent)]
+             (let [gc-name (get-in entity [:grandparent/child :parent/child :nested-grandchild/name])]
+               (or (nil? gc-name) (= "mike" gc-name))))))
 
 (deftest check-semantic-spec->semantic-ast
   (let [gen-size 5
