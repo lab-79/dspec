@@ -524,7 +524,11 @@
           ; over-write them with our own deterministic set of interface keywords.
           unevaled-base-gen-spec `(s/keys :req ~(vec (remove #{:datomic-spec/interfaces} req-keys)) :opt ~opt-keys)
           ; TODO Replace s/gen with max-depth generator factory
-          base-gen-spec-factory (memoize #(s/gen (eval unevaled-base-gen-spec)))
+          base-gen-spec-factory (memoize #(s/gen
+                                           ; If the eval happened outside the generator factory,
+                                           ; an error would occur because the :req and :opt specs
+                                           ; might not be defined yet.
+                                           (eval unevaled-base-gen-spec)))
           ; TODO Replace s/gen with max-depth generator factory
           generators-factory (memoize #(cond-> (map (fn [x] (s/gen x)) all-inherited-interface-names)
                                          custom-generator-factory (conj (custom-generator-factory base-gen-spec-factory))
