@@ -6,8 +6,8 @@
   :source-paths ["src/cljc"]
   :test-paths ["test"]
   :dependencies [
-                 [org.clojure/clojure "1.9.0-alpha13"]
-                 [org.clojure/clojurescript "1.9.229"]
+                 [org.clojure/clojure "1.9.0-alpha14"]
+                 [org.clojure/clojurescript "1.9.293"]
                  [org.clojure/core.match "0.3.0-alpha4"]
                  [com.rpl/specter "0.12.0"]
                  [com.stuartsierra/dependency "0.2.0"]
