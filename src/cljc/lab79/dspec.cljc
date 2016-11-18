@@ -484,12 +484,24 @@
 (s/def :cljspec/spec s/spec?)
 (s/def :dspec/gen-factory (s/fspec :args (s/cat)
                                    :ret generator?))
+(s/def :dspec/gen-factory-1 (s/fspec :args (s/cat :original-gen-factory :dspec/gen-factory)
+                                     :ret generator?))
 ; TODO Replace dummy with more precise fspec
 (s/def :dummy/gen-factory fn?)
+(s/def :dummy/gen-factory-1 fn?)
 
-; TODO s/fdef
+(s/fdef interface->generator-factory
+        :args (s/cat :spec s/spec?
+                     :inherited-custom-generators (s/coll-of :dummy/gen-factory-1)
+                     :custom-generator-factory (s/nilable :dummy/gen-factory-1)
+                     :all-my-self-labeling-interfaces (s/coll-of keyword? :kind set?)
+                     :all-inherited-interface-names (s/coll-of keyword? :kind set?)
+                     :req-keys (s/coll-of keyword?)
+                     :opt-keys (s/coll-of keyword?))
+        :ret :dspec/gen-factory)
 (defn interface->generator-factory
   [spec
+   ; TODO inherited-custom-generators not used
    inherited-custom-generators
    custom-generator-factory
    all-my-self-labeling-interfaces
