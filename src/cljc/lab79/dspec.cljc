@@ -510,11 +510,11 @@
    opt-keys]
   (if (and (not (seq inherited-custom-generators))
            (not (seq all-my-self-labeling-interfaces)))
-    (if custom-generator-factory
-      ; TODO Replace s/gen with max-depth generator factory
-      #(custom-generator-factory (constantly (s/gen spec)))
-      ; TODO Replace s/gen with max-depth generator factory
-      #(s/gen spec))
+    ; TODO Replace s/gen with max-depth generator factory
+    (let [original-generator-factory #(s/gen spec)]
+      (if custom-generator-factory
+        #(custom-generator-factory original-generator-factory)
+        original-generator-factory))
     (let [f (if (seq all-my-self-labeling-interfaces)
               (fn [objects-to-combine]
                  (apply merge (conj objects-to-combine
