@@ -811,7 +811,6 @@
                         [key val])))
             (apply gen/hash-map))))))
 
-; TODO Use gen-overrides custom-generators
 (s/fdef gen-with-max-depth
         :args (s/cat :ast :interface/ast
                      :gen-overrides (s/map-of keyword? :dummy/gen-factory)
@@ -836,12 +835,12 @@
                          (if (seq all-my-self-labeling-interfaces)
                            (gen/return {:datomic-spec/interfaces all-my-self-labeling-interfaces})
                            (gen/return {})))
-        interface-gens (gen/tuple native-only-gen interface-only-gen self-label-gen)
-        combined-interface-gen (gen/fmap #(apply merge %) interface-gens)
+        combined-interface-gen (gen/fmap #(apply merge %)
+                                         (gen/tuple native-only-gen interface-only-gen self-label-gen))
+        ; TODO But we should figure out how max-depth, custom generators, and our built-in combined generator work together.
         generator (if-let [custom-gen-factory (get gen-overrides interface-name)]
                     (custom-gen-factory (constantly combined-interface-gen))
                     combined-interface-gen)]
-    ; TODO But we should figure out how max-depth, custom generators, and our built-in combined generator work together.
     (when (= interface-name :interface/violates-such-that)
       (println (keys gen-overrides))
       (println interface-name))
