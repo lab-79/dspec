@@ -838,8 +838,7 @@
         generator (if-let [custom-gen-factory (get gen-overrides interface-name)]
                     (custom-gen-factory (constantly combined-interface-gen))
                     combined-interface-gen)]
-    ;      But we should figure out how max-depth, custom generators, and our built-in combined generator
-    ;      work together.
+    ; TODO But we should figure out how max-depth, custom generators, and our built-in combined generator work together.
     (when (= interface-name :interface/violates-such-that)
       (println (keys gen-overrides))
       (println interface-name))
