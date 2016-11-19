@@ -750,6 +750,64 @@
     {:req-interface-fields req-interface-fields :req-native-fields req-native-fields
      :opt-interface-fields opt-interface-fields :opt-native-fields opt-native-fields}))
 
+(s/fdef gen-native-only-hash-map
+        :args (s/cat :req-native-fields (s/coll-of :interface.ast/field)
+                     :opt-native-fields (s/coll-of :interface.ast/field))
+        :ret generator?)
+(defn- gen-native-only-hash-map
+  "Generator for generating native-type fields (e.g., keyword, string, boolean)"
+  [req-native-fields opt-native-fields]
+  (let [native-only-spec (eval
+                          ; Special quoting and evaling is necessary because s/keys is a macro
+                          ; and cannot resolve req-native-fields at runtime if not inside a
+                          ; quoted clojure.spec expression.
+                          `(s/keys
+                            :req ~(->> req-native-fields
+                                       (map :db/ident)
+                                       ; We rm :datomic-spec/interfaces from the spec because
+                                       ; we want to hard code the exact values later instead of
+                                       ; letting the generator resulting from s/gen generate it
+                                       ; for us.
+                                       (remove #{:datomic-spec/interfaces})
+                                       (into [:db/id]))
+                            :opt ~(mapv :db/ident opt-native-fields)))]
+    (s/gen native-only-spec)))
+
+(declare gen-with-max-depth)
+
+(s/fdef gen-interface-only-hash-map
+        :args (s/cat :req-interface-fields (s/coll-of :interface.ast/field)
+                     :opt-interface-fields (s/coll-of :interface.ast/field)
+                     :max-depth (s/and integer? pos?)
+                     :ast :interface/ast
+                     :gen-overrides (s/map-of keyword? :dummy/gen-factory-1))
+        :ret generator?)
+(defn- gen-interface-only-hash-map
+  [req-interface-fields opt-interface-fields max-depth ast gen-overrides]
+  (let [; Generates a random vector of required and optional fields for the given
+        ; interface.
+        interface-fields-gen (if (< 1 max-depth)
+                               (gen/fmap
+                                (fn [num-opt-interface-fields-to-generate]
+                                  (->> (shuffle opt-interface-fields)
+                                       (take num-opt-interface-fields-to-generate)
+                                       (concat req-interface-fields)))
+                                (gen/choose 0 (count opt-interface-fields)))
+                               (gen/return []))]
+    (gen/bind
+     interface-fields-gen
+     (fn [interface-fields]
+       (->> interface-fields
+            (mapcat (fn [field]
+                      (let [key (:db/ident field)
+                            interface-name (:interface.ast.field/type field)
+                            default-max-depth-gen (gen-with-max-depth ast gen-overrides (dec max-depth) interface-name)
+                            val (if-let [gen-factory (get gen-overrides interface-name)]
+                                  (gen-factory (constantly default-max-depth-gen))
+                                  default-max-depth-gen)]
+                        [key val])))
+            (apply gen/hash-map))))))
+
 ; TODO Use gen-overrides custom-generators
 (s/fdef gen-with-max-depth
         :args (s/cat :ast :interface/ast
@@ -763,49 +821,10 @@
   (let [{:keys [req-interface-fields req-native-fields
                 opt-interface-fields opt-native-fields]} (ast&interface-name->partitioned-fields ast interface-name)
         ; TODO Warn if nested-ness conflicts with max-depth
-        ; Generator for generating native-type fields (e.g., keyword, string, boolean)
-        native-only-spec (eval
-                          ; Special quoting and evaling is necessary because s/keys is a macro
-                          ; and cannot resolve req-native-fields at runtime if not inside a
-                          ; quoted clojure.spec expression.
-                          `(s/keys
-                            :req ~(->> req-native-fields
-                                       (map :db/ident)
-                                       ; We rm :datomic-spec/interfaces from the spec because
-                                       ; we want to hard code the exact values later instead of
-                                       ; letting the generator resulting from s/gen generate it
-                                       ; for us.
-                                       (remove #{:datomic-spec/interfaces})
-                                       (into [:db/id]))
-                            :opt ~(mapv :db/ident opt-native-fields)))
 
-        ; Generates a random vector of required and optional fields for the given
-        ; interface.
-        interface-fields-gen (if (< 1 max-depth)
-                               (gen/fmap
-                                (fn [num-opt-interface-fields-to-generate]
-                                  (->> (shuffle opt-interface-fields)
-                                       (take num-opt-interface-fields-to-generate)
-                                       (concat req-interface-fields)))
-                                (gen/choose 0 (count opt-interface-fields)))
-                               (gen/return []))
+        native-only-gen (gen-native-only-hash-map req-native-fields opt-native-fields)
 
-        native-only-gen (if-let [gen-factory (get gen-overrides interface-name)]
-                          (gen-factory (constantly (s/gen native-only-spec)))
-                          (s/gen native-only-spec))
-        interface-only-gen (gen/bind
-                            interface-fields-gen
-                            (fn [interface-fields]
-                              (->> interface-fields
-                                   (mapcat (fn [field]
-                                             (let [key (:db/ident field)
-                                                   interface-name (:interface.ast.field/type field)
-                                                   default-max-depth-gen (gen-with-max-depth ast gen-overrides (dec max-depth) interface-name)
-                                                   val (if-let [gen-factory (get gen-overrides interface-name)]
-                                                         (gen-factory (constantly default-max-depth-gen))
-                                                         default-max-depth-gen)]
-                                               [key val])))
-                                   (apply gen/hash-map))))
+        interface-only-gen (gen-interface-only-hash-map req-interface-fields opt-interface-fields max-depth ast gen-overrides)
 
         self-label-gen (let [all-inherited-interface-names (get-all-inherited-interface-names ast interface-name)
                              all-my-self-labeling-interfaces (set (filter
@@ -814,13 +833,18 @@
                          (if (seq all-my-self-labeling-interfaces)
                            (gen/return {:datomic-spec/interfaces all-my-self-labeling-interfaces})
                            (gen/return {})))
-        interface-gens (gen/tuple native-only-gen interface-only-gen self-label-gen)]
-
+        interface-gens (gen/tuple native-only-gen interface-only-gen self-label-gen)
+        combined-interface-gen (gen/fmap #(apply merge %) interface-gens)
+        generator (if-let [custom-gen-factory (get gen-overrides interface-name)]
+                    (custom-gen-factory (constantly combined-interface-gen))
+                    combined-interface-gen)]
+    ;      But we should figure out how max-depth, custom generators, and our built-in combined generator
+    ;      work together.
     (when (= interface-name :interface/violates-such-that)
       (println (keys gen-overrides))
       (println interface-name))
     (tcgen/such-that #(s/valid? interface-name %)
-                     (gen/fmap #(apply merge %) interface-gens)
+                     generator
                      ; TODO Uncomment this when test.check reaches 0.9.1
 ;                     {:max-tries 10
 ;                      :ex-fn (fn [{:keys [gen pred max-tries]}]
