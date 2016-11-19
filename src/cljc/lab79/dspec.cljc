@@ -687,7 +687,7 @@
                                             #(< 1 (count (keys %)))
                                             (resize 1 (gen-factory)))))}]
     (->> all-fields
-         (filter #(not= (:db/ident %) :datomic-spec/interfaces))
+         (remove #(= (:db/ident %) :datomic-spec/interfaces))
          (reduce (fn [specs-by-name {:keys [db/ident] :as field}]
                    (assoc specs-by-name ident (field->clojure-specs field (get gen-overrides ident))))
                  specs-by-name))))
