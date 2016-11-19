@@ -783,6 +783,9 @@
                      :gen-overrides (s/map-of keyword? :dummy/gen-factory-1))
         :ret generator?)
 (defn- gen-interface-only-hash-map
+  "Returns a generator that only generates the required and some optional
+  keys and values of an interface, limited only to the values that are of
+  interface-type (i.e., not native-type)."
   [req-interface-fields opt-interface-fields max-depth ast gen-overrides]
   (let [; Generates a random vector of required and optional fields for the given
         ; interface.
