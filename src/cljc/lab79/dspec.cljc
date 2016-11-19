@@ -683,7 +683,7 @@
                                         (fn []
                                           (gen/such-that
                                             ; Datomic doesn't accept just
-                                            ; interfaces with 
+                                            ; interfaces with only :db/id
                                             #(< 1 (count (keys %)))
                                             (resize 1 (gen-factory)))))}]
     (->> all-fields
