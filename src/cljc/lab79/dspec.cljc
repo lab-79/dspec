@@ -413,6 +413,9 @@
    :datomic/enum-schema (semantic-ast->datomic-enum-schemas ast tempid-factory)
    :datomic/partition-schema (semantic-ast->datomic-partition-schemas ast tempid-factory)})
 
+(s/fdef validate-semantic-ast
+        :args (s/cat :ast :interface/ast)
+        :ret nil?)
 (defn- validate-semantic-ast
   [ast]
   (let [enum-vals (set (select [:interface.ast/enum-map MAP-VALS :db/ident] ast))
@@ -500,6 +503,33 @@
                      :opt-keys (s/coll-of keyword?))
         :ret :dspec/gen-factory)
 (defn interface->generator-factory
+  "Returns a factory function that returns a generator for the interface
+  represented by spec, inherited-custom-generators, all-my-self-labeling-interfaces,
+  all-inherited-interface-names, req-keys, and opt-keys, while also incorporating
+  an optional overriding custom-generatory-factory.
+
+  The simplest case will be just a generator based off just a plain clojure.spec
+  `(s/keys :req req :opt opt)`.
+
+  A more advanced case is one in which there are custom generators.
+
+  An even more advanced case is one in which we inherit custom generators via
+  interfaces we inherit. Do we automatically merge the results of these generators?
+  Is there any sense of applying precedence to the generators? Do we give control
+  to the developer, and how do we give that developer control? What are the likely
+  concrete examples in which this would occur?
+
+  The only control we have over s/keys is what is required and what is optional.
+  The most general way to specify this is as a frequency distribution of generated
+  keys across sample entities generated.
+
+  The kind of control we may also want to exercise in generation is association of
+  a generated entity with a related entity. For example we may want to generate
+  a set of users who belong to a particular access control group and another set
+  of users who belong to another access control group. What might this look like?
+
+  We need to respect max-depth when generating an entity. These also need to be
+  passed along to children generators that generated interface-type child entities."
   [spec
    ; TODO inherited-custom-generators not used
    inherited-custom-generators
@@ -537,6 +567,12 @@
              generator (apply gen/tuple generators)]
          (gen/fmap f generator)))))
 
+; TODO Remove or complete.
+(defn interface->generator-factory
+  [ast interface-name gen-middleware]
+  (let []
+    (fn [max-depth])))
+
 (s/fdef interface->clojure-spec&generator
         :args (s/cat :ast :interface/ast
                      :interface-name keyword?
@@ -545,7 +581,10 @@
                      )
         :ret (s/keys :req-un [:cljspec/spec :dspec/gen-factory]))
 (defn- interface->clojure-spec&generator
-  "Returns the entity map clojure.spec for the given interface represented by `interface-name`."
+  "For a given interface represented by `interface-name`, this returns:
+  1. The entity map clojure.spec for the given interface.
+  2. A factory function that returns a generator for generating sample data
+     that satisfy the interface."
   [ast interface-name gen-overrides]
   (let [interface (get-in ast [:interface.ast/interfaces interface-name])
         all-fields (ast&interface->ast-fields ast interface)
@@ -573,28 +612,47 @@
 
         ; We use distinct here because we could have multiple :datomic-spec/interfaces attributes that we inherit
         req-keys (conj (vec (distinct (map :db/ident req-fields))) :db/id)
-        opt-keys (mapv :db/ident opt-fields)
+        opt-keys (vec (distinct (map :db/ident opt-fields)))
 
         base-spec (eval `(s/keys :req ~req-keys :opt ~opt-keys))
         spec (if (seq all-my-self-labeling-interfaces)
-               (s/and base-spec #(clojure.set/subset? all-my-self-labeling-interfaces (:datomic-spec/interfaces %)))
-               base-spec)
-        gen-factory (interface->generator-factory spec
-                                                  inherited-custom-generators
-                                                  custom-generator-factory
-                                                  all-my-self-labeling-interfaces
-                                                  all-inherited-interface-names
-                                                  req-keys
-                                                  opt-keys)]
+               (s/and base-spec #(= all-my-self-labeling-interfaces (:datomic-spec/interfaces %)))
+               base-spec)]
     {:spec spec
-     :gen-factory gen-factory}))
+     :gen-factory (interface->generator-factory spec
+                                                inherited-custom-generators
+                                                custom-generator-factory
+                                                all-my-self-labeling-interfaces
+                                                all-inherited-interface-names
+                                                req-keys
+                                                opt-keys)}))
 
 (def NATIVE-TYPES
   #{:keyword :string :boolean :long :bigint :float :double :bigdec :instant :uuid :uri :bytes})
 
+(s/fdef interface-type?
+        :args (s/cat :type keyword?)
+        :ret boolean?)
 (defn- interface-type?
+  "Fields are associated with values that are either scalar values or
+  values that are instances of dspec interfaces (i.e., are values that
+  are hash maps) or collections of scalar values or interface values.
+  This will return true if the field is associated with a value that
+  is an interface instance or a collection of interface instances."
   [type]
   (not (contains? (conj NATIVE-TYPES :enum) type)))
+
+(s/fdef interface-field?
+        :args (s/cat :field :interface.ast/field)
+        :ret boolean?)
+(defn- interface-field?
+  "Fields are associated with values that are either scalar values or
+  values that are instances of dspec interfaces (i.e., are values that
+  are hash maps) or collections of scalar values or interface values.
+  This will return true if the field is associated with a value that
+  is an interface instance or a collection of interface instances."
+  [field]
+  (interface-type? (:interface.ast.field/type field)))
 
 (s/fdef add-field-refs-to-deps-graph
         :args (s/cat :interface-name keyword?
@@ -719,6 +777,174 @@
     {:datomic-spec/interfaces (s/coll-of keyword? :kind set?)}
     (vals interfaces)))
 
+(defn- interface->field->frequency
+  [ast interface-name]
+  (let [interface (get-in ast [:interface.ast/interfaces interface-name])
+        all-fields (ast&interface->ast-fields ast interface)
+        {req true, opt true, :or {req [], opt []}} (group-by :interface.ast.field/required all-fields)]
+    (into {}
+          (concat
+           (->> req (map :db/ident) (map (fn [ident] [ident 100])))
+           (->> opt (map :db/ident) (map (fn [ident] [ident (/ 100 (count opt))])))))))
+
+
+
+(defn- xxx
+  [field->frequency])
+
+(defn- maybe-throw-depth-violation!
+  [required-keys-assoc-with-hash-map-vals max-depth]
+  (if (and (pos? (count required-keys-assoc-with-hash-map-vals))
+           (<= max-depth 1))
+    (throw (ex-info "Max depth incompatible with required keys associated with a hash map value."
+                    {:max-depth max-depth
+                     :req-hash-map-keys required-keys-assoc-with-hash-map-vals}))))
+
+(s/def :clojure.spec.keys*/req (s/coll-of keyword? :kind vector?))
+(s/def :clojure.spec.keys*/opt (s/coll-of keyword? :kind vector?))
+(s/def :clojure.spec/keys-expr (s/cat :sym #{'keys}
+                                      :keys (s/keys* :req-un [:clojure.spec.keys*/req]
+                                                     :opt-un [:clojure.spec.keys*/opt])))
+
+(s/fdef parse-req-opt-keys
+        :args (s/cat :spec s/spec?)
+        :ret (s/keys :req-un [:clojure.spec.keys*/req :clojure.spec.keys*/opt]))
+(defn- parse-req-opt-keys
+  [spec]
+  (let [conformed (s/conform :clojure.spec/keys-expr)]
+    (if (= :clojure.spec/invalid conformed)
+      {:match? false}
+      (assoc (:keys conformed) :match? true))))
+
+(s/fdef create-gen-overrides-with-max-depth
+        :args (s/cat :spec s/spec?
+                     :assoc-with-hash-map? fn?
+                     :max-depth (s/and integer? pos?)
+                     :path (s/? (s/coll-of keyword? :kind vector?)))
+        :ret (s/map-of vector? :dummy/gen-factory))
+; TODO Incorporate custom map generator factories that take into account
+;      max depth?
+(defn create-gen-overrides-with-max-depth
+  "Intended to be used with (clojure.spec/gen spec overrides).
+  Creates overrides that result in generated data from spec, such that
+  the generated data does not exceed a tree depth of max-depth."
+  ([spec assoc-with-hash-map? max-depth]
+   (create-gen-overrides-with-max-depth spec assoc-with-hash-map? max-depth []))
+  ([spec assoc-with-hash-map? max-depth path]
+   (let [{:keys [match? req opt]} (parse-req-opt-keys spec)]
+     (if-not match?
+       {}
+       (if (< 1 max-depth)
+         (->> (into req opt)
+              (filter (comp assoc-with-hash-map? s/get-spec))
+              (map #(create-gen-overrides-with-max-depth (s/get-spec %) assoc-with-hash-map? (dec max-depth) (conj path %)))
+              (apply merge))
+         (do
+           (maybe-throw-depth-violation! (filter assoc-with-hash-map? req) max-depth)
+           {path #(eval `(s/keys :req ~(filter (complement assoc-with-hash-map?) req)
+                                 :opt ~(filter (complement assoc-with-hash-map?) opt)))}))))))
+
+(s/fdef spec-key-assoc-with-hash-map?
+        :args (s/cat :spec-key keyword?)
+        :ret boolean?)
+(defn- spec-key-assoc-with-hash-map?
+  [spec-key]
+  (->> spec-key
+       s/get-spec
+       s/describe
+       (s/conform :clojure.spec/keys-expr)
+       (not= :clojure.spec/invalid)))
+
+(s/fdef create-top-level-gen-with-max-depth
+        :args (s/cat :spec s/spec?
+                     :assoc-with-hash-map? fn?
+                     :max-depth (s/and integer? pos?))
+        :ret generator?)
+(defn- create-top-level-gen-with-max-depth
+  "Used with (clojure.spec/with-gen spec gen). This will adjust the generator
+  appropriately so that if max-depth is 1 or 0, then this will generate only
+  keys that are associated with shalow values (i.e., not hash map values)."
+  [spec assoc-with-hash-map? max-depth]
+  (let [{:keys [match? req opt]} (parse-req-opt-keys spec)]
+    (if-not match?
+      (throw (ex-info "Spec does not correspond to a hash map." {:spec spec}))
+      (s/gen (if (< 1 max-depth)
+               spec
+               (do
+                 (maybe-throw-depth-violation! (filter assoc-with-hash-map? req) max-depth)
+                 (eval `(s/keys :req ~(filter (complement assoc-with-hash-map?) req)
+                                :opt ~(filter (complement assoc-with-hash-map?) opt)))))))))
+
+; TODO Generate proper :datomic-spec/interfaces
+(defn- create-dspec-interfaces-field-gen-factory
+  [spec])
+
+(s/fdef interface&max-depth->path->interface-name
+        :args (s/cat :ast :interface/ast
+                     :interface-name keyword?
+                     :max-depth (s/and integer? pos?)
+                     :prefix-path (s/coll-of keyword? :kind vector?))
+        :ret (s/map-of (s/coll-of keyword? :kind vector?)
+                       keyword?))
+(defn- interface&max-depth->path->interface
+  "Given a tree of type interface-name where the tree has max-depth,
+  find all possible nested nodes that have an interface type and return
+  a hash map that maps the paths to those possible nodes to the interface
+  name the node's value is an instant of."
+  [ast interface-name max-depth prefix-path]
+  (if (>= 1 max-depth)
+    {}
+    (let [interface-fields
+          (->> (get-in ast [:interface.ast/interfaces interface-name :interface.ast.interface/fields])
+               vals
+               (filter #(interface-type? (:interface.ast.field/type %))))
+
+          path->interface
+          (->> interface-fields
+               (map #(let [next-prefix-path (conj prefix-path (:db/ident %))
+                           interface-name (:interface.ast.field/type %)]
+                       [next-prefix-path interface-name]))
+               (into {}))]
+      (->> path->interface
+           (map (fn [[path interface-name]]
+                  (interface&max-depth->path->interface ast interface-name (dec max-depth) path)))
+           (apply merge path->interface)))))
+
+(s/fdef create-path->dspec-interfaces-gen-factories
+        :args (s/cat :ast :interface/ast
+                     :interface-name keyword?
+                     :max-depth (s/and integer? pos?))
+        :ret (s/map-of (s/coll-of keyword? :kind vector?)
+                       :dummy/gen-factory))
+(defn- create-path->dspec-interfaces-gen-factories
+  "For a given dspec interface and desired max-depth that limits
+  the depth of the generated tree, return a hash map that associates
+  a path (represented as a vector of attributes to get from the root
+  to the value) to a generator factory that returns a generator that
+  generates a value at that path."
+  [ast interface-name max-depth]
+  (let [path->interface-name (interface&max-depth->path->interface ast interface-name max-depth)]
+    ))
+
+; TODO Remove
+(comment
+  (defn- create-max-depth-gen-factory
+    [spec assoc-with-hash-map?]
+    (fn [max-depth]
+      (let [{native-req false, hash-map-req true
+             :or {native-req [], hash-map-req []}} (group-by assoc-with-hash-map? req)
+            {native-opt false, hash-map-opt true
+             :or {native-opt [], hash-map-opt []}} (group-by assoc-with-hash-map? opt)
+            native-keys-gen (s/gen `(s/keys :req ~native-req :opt ~native-opt))
+            _ (maybe-throw-depth-violation! hash-map-req max-depth)
+            hash-map-keys-gen (if (> max-depth 1)
+                                (s/gen `(s/keys :req ~hash-map-req :opt ~hash-map-opt))
+                                (gen/return {}))]
+        {; Used with s/with-gen. Controls what keys to include.
+         :generator (gen/fmap (partial apply merge) (gen/tuple native-keys-gen hash-map-keys-gen))
+                                        ; Used with (s/gen spec overrides). Controls depth of child keys.
+         :overrides (create-gen-overrides spec assoc-with-hash-map? max-depth [])}))))
+
 (s/def ::req-interface-fields (s/coll-of :interface.ast/field))
 (s/def ::req-native-fields (s/coll-of :interface.ast/field))
 (s/def ::opt-interface-fields (s/coll-of :interface.ast/field))
@@ -741,12 +967,11 @@
         {req-fields true, opt-fields nil
          :or {req-fields [] opt-fields []}} (group-by :interface.ast.field/required all-fields)
 
-        is-interface-field? (fn [field] (interface-type? (:interface.ast.field/type field)))
         {req-interface-fields true, req-native-fields false
-         :or {req-interface-fields [], req-native-fields []}} (group-by is-interface-field? req-fields)
+         :or {req-interface-fields [], req-native-fields []}} (group-by interface-field? req-fields)
 
         {opt-interface-fields true, opt-native-fields false
-         :or {opt-interface-fields [], opt-native-fields []}} (group-by is-interface-field? opt-fields)]
+         :or {opt-interface-fields [], opt-native-fields []}} (group-by interface-field? opt-fields)]
     {:req-interface-fields req-interface-fields :req-native-fields req-native-fields
      :opt-interface-fields opt-interface-fields :opt-native-fields opt-native-fields}))
 
@@ -821,7 +1046,8 @@
   "Creates a generator with a max tree depth. Useful to keep generators from ballooning."
   [ast gen-overrides max-depth interface-name]
   (let [{:keys [req-interface-fields req-native-fields
-                opt-interface-fields opt-native-fields]} (ast&interface-name->partitioned-fields ast interface-name)
+                opt-interface-fields opt-native-fields]}
+        (ast&interface-name->partitioned-fields ast interface-name)
         ; TODO Warn if nested-ness conflicts with max-depth
 
         native-only-gen (gen-native-only-hash-map req-native-fields opt-native-fields)
@@ -841,9 +1067,12 @@
         generator (if-let [custom-gen-factory (get gen-overrides interface-name)]
                     (custom-gen-factory (constantly combined-interface-gen))
                     combined-interface-gen)]
+
+    ; TODO Remove later. In here for debugging purposes
     (when (= interface-name :interface/violates-such-that)
       (println (keys gen-overrides))
       (println interface-name))
+
     (tcgen/such-that #(s/valid? interface-name %)
                      generator
                      ; TODO Uncomment this when test.check reaches 0.9.1
