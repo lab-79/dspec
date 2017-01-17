@@ -1295,6 +1295,8 @@
                      :interface-names (s/+ keyword?))
         :ret (s/coll-of :datalog/clause))
 (defn identify-via-clauses-for
+  "Returns the Datomic datalog query clauses that we can use to identify entities that
+  satisfy the given interfaces"
   [ast eid-symbol & interface-names]
   (mapcat
     (fn [interface-name]
