@@ -34,11 +34,11 @@
   the keys specified by `kws`."
   [& kws]
   (fn [_]
-    (let [kv (flatten (map
-                        (fn [kw]
-                          [kw (gen/such-that #(not (nil? %)) (s/gen kw))])
-                        kws))]
-      (apply gen/hash-map kv))))
+    (let [kvs (mapcat
+                (fn [kw]
+                  [kw (gen/such-that #(not (nil? %)) (s/gen kw))])
+                kws)]
+      (apply gen/hash-map kvs))))
 
 (s/fdef ensure-keys-gen
         :args (s/cat :keywords (s/+ keyword?))
