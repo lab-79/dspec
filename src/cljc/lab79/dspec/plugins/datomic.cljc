@@ -39,7 +39,7 @@
        (reduce
          (fn [field-map {:keys [db/ident] :as field-ast}]
            ; distinct because an interface may share the same attribute, as is the case with
-           ; :datomic-spec/interfaces
+           ; :dspec/interfaces
            (if (contains? field-map ident)
              field-map
              (assoc field-map

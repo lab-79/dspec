@@ -22,7 +22,7 @@
 ;                                                 #(< 1 (count (keys %)))
 ;                                                 (~'gen-factory))))}]
 ;     (->> ~'all-fields
-;          (filter #(not= (:db/ident %) :datomic-spec/interfaces))
+;          (filter #(not= (:db/ident %) :dspec/interfaces))
 ;          (reduce (fn [specs-by-name {:keys [db/ident] :as field}]
 ;                    (assoc specs-by-name ident (field->clojure-specs field (get gen-map ident))))
 ;                  specs-by-name))))

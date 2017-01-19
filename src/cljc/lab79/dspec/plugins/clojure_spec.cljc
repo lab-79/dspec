@@ -132,11 +132,11 @@
     (let [f (if (seq all-my-self-labeling-interfaces)
               (fn [objects-to-combine]
                 (apply merge (conj objects-to-combine
-                                   {:datomic-spec/interfaces all-my-self-labeling-interfaces})))
+                                   {:dspec/interfaces all-my-self-labeling-interfaces})))
               (partial apply merge))
-          ; We remove :datomic-spec/interfaces, so we don't un-necessarily generate them randomly, before we
+          ; We remove :dspec/interfaces, so we don't un-necessarily generate them randomly, before we
           ; over-write them with our own deterministic set of interface keywords.
-          unevaled-base-gen-spec `(s/keys :req ~(vec (remove #{:datomic-spec/interfaces} req-keys)) :opt ~opt-keys)
+          unevaled-base-gen-spec `(s/keys :req ~(vec (remove #{:dspec/interfaces} req-keys)) :opt ~opt-keys)
           ; TODO Replace s/gen with max-depth generator factory
           base-gen-spec-factory (memoize #(s/gen
                                             ; If the eval happened outside the generator factory,
@@ -183,8 +183,8 @@
         all-inherited-interface-names (get-all-inherited-interface-names ast interface-name)
 
         ; If an ancestor is identified via an existing attribute instead of via the special attribute
-        ; :datomic-spec/interfaces, then let's be sure that we do not include the name of that ancestor
-        ; in this entity's :datomic-spec/interfaces set of inherited interfaces. This is because:
+        ; :dspec/interfaces, then let's be sure that we do not include the name of that ancestor
+        ; in this entity's :dspec/interfaces set of inherited interfaces. This is because:
         ; 1. There will be no Datomic enum in Datomic associated with the name of the ancestor.
         ; 2. We can detect that we share the interface of the ancestor via the same way the ancestor knows
         ;    its interface -- by the existence of an attribute(s) specified by the Datalog query clause in
@@ -194,18 +194,18 @@
                                                (conj all-inherited-interface-names interface-name)))
         inherited-custom-generators (keep gen-overrides all-inherited-interface-names)
 
-        ; We use distinct here because we could have multiple :datomic-spec/interfaces attributes that we inherit
+        ; We use distinct here because we could have multiple :dspec/interfaces attributes that we inherit
         req-keys (conj (vec (distinct (map :db/ident req-fields))) :db/id)
         opt-keys (vec (distinct (map :db/ident opt-fields)))
 
         base-spec (eval `(s/keys :req ~req-keys :opt ~opt-keys))
         spec (if (seq all-my-self-labeling-interfaces)
                (s/and base-spec
-                      ; Use `subset?` instead of `=`, because `(:datomic-spec/interfaces %)` may test against
+                      ; Use `subset?` instead of `=`, because `(:dspec/interfaces %)` may test against
                       ; an entity (i.e., here the entity is `%`) that inherits from this spec. In this case,
                       ; the inheriting entity should pass this inherited spec. Equality would result in it not
                       ; passing the spec. Subset check is what we want.
-                      #(clojure.set/subset? all-my-self-labeling-interfaces (:datomic-spec/interfaces %)))
+                      #(clojure.set/subset? all-my-self-labeling-interfaces (:dspec/interfaces %)))
                base-spec)]
     {:spec spec
      :gen-factory (interface->generator-factory spec
@@ -343,7 +343,7 @@
                                             #(< 1 (count (keys %)))
                                             (resize 1 (gen-factory)))))}]
     (->> all-fields
-         (remove #(= (:db/ident %) :datomic-spec/interfaces))
+         (remove #(= (:db/ident %) :dspec/interfaces))
          (reduce (fn [specs-by-name {:keys [db/ident] :as field}]
                    (assoc specs-by-name ident (field->clojure-specs field (get gen-overrides ident))))
                  specs-by-name))))
@@ -372,7 +372,7 @@
   (reduce
     (fn [specs interface]
       (merge specs (interface->clojure-specs ast interface gen-overrides)))
-    {:datomic-spec/interfaces (s/coll-of keyword? :kind set?)}
+    {:dspec/interfaces (s/coll-of keyword? :kind set?)}
     (vals interfaces)))
 
 (defn- interface->field->frequency
@@ -458,7 +458,7 @@
                  (eval `(s/keys :req ~(filter (complement assoc-with-hash-map?) req)
                                 :opt ~(filter (complement assoc-with-hash-map?) opt)))))))))
 
-; TODO Generate proper :datomic-spec/interfaces
+; TODO Generate proper :dspec/interfaces
 (defn- create-dspec-interfaces-field-gen-factory
   [spec])
 
@@ -572,11 +572,11 @@
                            `(s/keys
                               :req ~(->> req-native-fields
                                          (map :db/ident)
-                                         ; We rm :datomic-spec/interfaces from the spec because
+                                         ; We rm :dspec/interfaces from the spec because
                                          ; we want to hard code the exact values later instead of
                                          ; letting the generator resulting from s/gen generate it
                                          ; for us.
-                                         (remove #{:datomic-spec/interfaces})
+                                         (remove #{:dspec/interfaces})
                                          (into [:db/id]))
                               :opt ~(mapv :db/ident opt-native-fields)))]
     (s/gen native-only-spec)))
@@ -642,7 +642,7 @@
                                                                     #(contains? (:interface.ast/enum-map ast) %)
                                                                     (conj all-inherited-interface-names interface-name)))]
                          (if (seq all-my-self-labeling-interfaces)
-                           (gen/return {:datomic-spec/interfaces all-my-self-labeling-interfaces})
+                           (gen/return {:dspec/interfaces all-my-self-labeling-interfaces})
                            (gen/return {})))
         combined-interface-gen (gen/fmap #(apply merge %)
                                          (gen/tuple native-only-gen interface-only-gen self-label-gen))

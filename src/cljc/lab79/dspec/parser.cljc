@@ -171,16 +171,16 @@
                                                       (assoc-in [:interface-fields field-name] field))))
                                               {:interface-fields {} :enum-map {}}
                                               fields)
-        identify-via' (if (= :datomic-spec/interfaces identify-via)
-                        [['?e :datomic-spec/interfaces name]]
+        identify-via' (if (= :dspec/interfaces identify-via)
+                        [['?e :dspec/interfaces name]]
                         identify-via)]
     {:interface.ast/interfaces
                              {name #:interface.ast.interface
                                        {:name name
                                         :fields (cond->
                                                   interface-fields
-                                                  (= :datomic-spec/interfaces identify-via) (assoc :datomic-spec/interfaces
-                                                                                                   {:db/ident :datomic-spec/interfaces
+                                                  (= :dspec/interfaces identify-via) (assoc :dspec/interfaces
+                                                                                                   {:db/ident :dspec/interfaces
                                                                                                     :db/valueType :db.type/ref
                                                                                                     :db/index true
                                                                                                     :db/cardinality :db.cardinality/many
@@ -190,5 +190,5 @@
                                         :inherits (set inherits)
                                         :identify-via identify-via'}}
      :interface.ast/enum-map (cond-> enum-map
-                                     (= :datomic-spec/interfaces identify-via) (assoc name {:db/ident name
+                                     (= :dspec/interfaces identify-via) (assoc name {:db/ident name
                                                                                             :db/part identifying-enum-part}))}))

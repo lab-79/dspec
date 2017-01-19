@@ -7,7 +7,7 @@
 (s/def :interface/def
   (s/and (s/keys :req [:interface.def/name :interface.def/fields :interface.def/identify-via]
                  :opt [:interface.def/identifying-enum-part])
-         (s/or :id-via-dspec-interfaces (s/and #(= (% :interface.def/identify-via) [:identify-via/reserved-attribute :datomic-spec/interfaces])
+         (s/or :id-via-dspec-interfaces (s/and #(= (% :interface.def/identify-via) [:identify-via/reserved-attribute :dspec/interfaces])
                                                #(contains? % :interface.def/identifying-enum-part))
                :id-via-attr #(= (-> % :interface.def/identify-via first) :identify-via/datalog-clause))))
 
@@ -32,7 +32,7 @@
 
 (s/def :interface.def/inherits (s/coll-of keyword? :kind vector?))
 
-(s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:datomic-spec/interfaces}
+(s/def :interface.def/identify-via (s/or :identify-via/reserved-attribute #{:dspec/interfaces}
                                          :identify-via/datalog-clause :datomic.query.kv/where))
 
 (s/def :db/part (s/with-gen (s/and keyword? #(= (namespace %) "db.part"))
