@@ -10,13 +10,17 @@
             #?(:clj  [clojure.test.check.properties :refer [for-all]]
                :cljs [clojure.test.check.properties :refer-macros [for-all]])
             [clojure.spec.test :as stest]
-            [lab79.dspec :refer [semantic-spec->semantic-ast semantic-spec-coll->semantic-ast register-specs-for-ast!
-                                 satisfies-interface? NATIVE-TYPES semantic-ast->datomic-schemas entity->interfaces
-                                 eid-satisfies-interface? identify-via-clauses-for
-                                 register-specs-for-ast-with-custom-generators!
-                                 ast&interface->identifying-datalog-clauses
-                                 gen-with-max-depth]]
-            [lab79.dspec.gen :refer [ensure-keys-gen]]
+            [lab79.dspec.plugins.clojure-spec
+             :refer [register-specs-for-ast! NATIVE-TYPES
+                     register-specs-for-ast-with-custom-generators!
+                     gen-with-max-depth]]
+            [lab79.dspec.plugins.datomic
+             :refer [ast->schemas entity->interfaces
+                     satisfies-interface?
+                     eid-satisfies-interface? identify-via-clauses-for
+                     ast&interface->identifying-datalog-clauses]]
+            [lab79.dspec :refer [dspec->ast dspec-coll->ast]]
+            [lab79.dspec.util.gen :refer [ensure-keys-gen]]
             #?(:clj  [clojure.spec :as s]
                :cljs [cljs.spec :as s])
             #?(:clj  [clojure.spec.gen :as gen]
@@ -92,9 +96,9 @@
               :interface.def/fields {:eponym/required-attr [:keyword :required]}
               :interface.def/identify-via :datomic-spec/interfaces
               :interface.def/identifying-enum-part :db.part/test}
-        ast (semantic-spec->semantic-ast spec)]
+        ast (dspec->ast spec)]
     (testing "generating Datomic schemas"
-      (let [{:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:datomic/keys [field-schema enum-schema partition-schema]} (ast->schemas ast d/tempid)]
         (is (= #{{:db/ident :datomic-spec/interfaces
                   :db/valueType :db.type/ref
                   :db/cardinality :db.cardinality/many
@@ -152,7 +156,7 @@
     (testing "detecting interfaces of entity ids"
       (register-specs-for-ast! ast d/tempid db-id?)
       (testing "not satisfying"
-        (let [{:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+        (let [{:datomic/keys [field-schema enum-schema partition-schema]} (ast->schemas ast d/tempid)
               tempid (d/tempid :db.part/user)
               {tempids :tempids
                db :db-after} (-> (d/db *conn*)
@@ -167,7 +171,7 @@
               eid (d/resolve-tempid db tempids tempid)]
           (is (false? (eid-satisfies-interface? ast :interface/eponym eid d/q d/filter db)))))
       (testing "satisfying"
-        (let [{:datomic/keys [field-schema enum-schema partition-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+        (let [{:datomic/keys [field-schema enum-schema partition-schema]} (ast->schemas ast d/tempid)
               generated-eponym (gen/generate (s/gen :interface/eponym))
               tempid (:db/id generated-eponym)
               {tempids :tempids
@@ -189,9 +193,9 @@
               :interface.def/fields {:obj/identifying-attr [:keyword]
                                      :obj/required-attr-for-id-by-attr [:keyword :required]}
               :interface.def/identify-via ['[?e :obj/identifying-attr]]}
-        ast (semantic-spec->semantic-ast spec)]
+        ast (dspec->ast spec)]
     (testing "generating Datomic schemas"
-      (let [{:datomic/keys [field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:datomic/keys [field-schema]} (ast->schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/identifying-attr
                   :db/valueType :db.type/keyword
                   :db/cardinality :db.cardinality/one
@@ -230,8 +234,8 @@
   (let [spec {:interface.def/name :interface/entity-with-keyword
               :interface.def/fields {:obj/keyword-attr [:keyword "A keyword attribute"]}
               :interface.def/identify-via ['[?e :obj/keyword-attr]]}
-        ast (semantic-spec->semantic-ast spec)]
-    (testing "semantic-spec->semantic-ast"
+        ast (dspec->ast spec)]
+    (testing "dspec->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-keyword
@@ -267,8 +271,8 @@
     (let [spec {:interface.def/name :interface/entity-with-string
                 :interface.def/fields {:obj/string-attr [:string "A string attribute"]}
                 :interface.def/identify-via ['[?e :obj/string-attr]]}
-          ast (semantic-spec->semantic-ast spec)]
-      (testing "semantic-spec->semantic-ast"
+          ast (dspec->ast spec)]
+      (testing "dspec->ast"
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-string
@@ -287,8 +291,8 @@
   (let [spec {:interface.def/name :interface/entity-with-boolean
               :interface.def/fields {:obj/boolean-attr [:boolean "A boolean attribute" :gen/should-generate]}
               :interface.def/identify-via ['[?e :obj/boolean-attr]]}
-        ast (semantic-spec->semantic-ast spec)]
-    (testing "semantic-spec->semantic-ast"
+        ast (dspec->ast spec)]
+    (testing "dspec->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-boolean
@@ -317,8 +321,8 @@
   (let [spec {:interface.def/name :interface/entity-with-long
               :interface.def/fields {:obj/long-attr [:long "A long attribute"]}
               :interface.def/identify-via ['[?e :obj/long-attr]]}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-long
@@ -337,8 +341,8 @@
   (let [spec {:interface.def/name :interface/entity-with-bigint
               :interface.def/fields {:obj/bigint-attr [:bigint "A bigint attribute"]}
               :interface.def/identify-via ['[?e :obj/bigint-attr]]}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-bigint
@@ -357,8 +361,8 @@
   (let [spec {:interface.def/name :interface/entity-with-float
               :interface.def/fields {:obj/float-attr [:float "A float attribute"]}
               :interface.def/identify-via ['[?e :obj/float-attr]]}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-float
@@ -377,8 +381,8 @@
   (let [spec {:interface.def/name :interface/entity-with-double
               :interface.def/fields {:obj/double-attr [:double "A double attribute"]}
               :interface.def/identify-via ['[?e :obj/double-attr]]}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-double
@@ -397,8 +401,8 @@
   (let [spec {:interface.def/name :interface/entity-with-bigdec
               :interface.def/fields {:obj/bigdec-attr [:bigdec "A bigdec attribute"]}
               :interface.def/identify-via ['[?e :obj/bigdec-attr]]}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-bigdec
@@ -417,8 +421,8 @@
   (let [spec {:interface.def/name :interface/entity-with-instant
               :interface.def/fields {:obj/instant-attr [:instant "An instant attribute" :gen/should-generate]}
               :interface.def/identify-via ['[?e :obj/instant-attr]]}
-        ast (semantic-spec->semantic-ast spec)]
-    (testing "semantic-spec->semantic-ast"
+        ast (dspec->ast spec)]
+    (testing "dspec->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-instant
@@ -447,8 +451,8 @@
   (let [spec {:interface.def/name :interface/entity-with-uuid
               :interface.def/fields {:obj/id [:uuid "A uuid" :gen/should-generate]}
               :interface.def/identify-via ['[?e :obj/id]]}
-        ast (semantic-spec->semantic-ast spec)]
-    (testing "semantic-spec->semantic-ast"
+        ast (dspec->ast spec)]
+    (testing "dspec->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-uuid
@@ -477,8 +481,8 @@
   (let [spec {:interface.def/name :interface/entity-with-uri
               :interface.def/fields {:obj/uri-attr [:uri "A uri attribute"]}
               :interface.def/identify-via ['[?e :obj/uri-attr]]}
-        ast (semantic-spec->semantic-ast spec)]
-    (testing "semantic-spec->semantic-ast"
+        ast (dspec->ast spec)]
+    (testing "dspec->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-uri
@@ -503,8 +507,8 @@
   (let [spec {:interface.def/name :interface/entity-with-bytes
               :interface.def/fields {:obj/bytes-attr [:bytes "A bytes attribute"]}
               :interface.def/identify-via ['[?e :obj/bytes-attr]]}
-        ast (semantic-spec->semantic-ast spec)]
-    (testing "semantic-spec->semantic-ast"
+        ast (dspec->ast spec)]
+    (testing "dspec->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-bytes
@@ -531,8 +535,8 @@
                 :interface.def/fields {:obj/enum-attr ["An enum attribute"
                                                        :enum #{:some.enum/a :some.enum/b}]}
                 :interface.def/identify-via ['[?e :obj/enum-attr]]}
-          ast (semantic-spec->semantic-ast spec)]
-      (testing "semantic-spec->semantic-ast"
+          ast (dspec->ast spec)]
+      (testing "dspec->ast"
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-enum
@@ -561,8 +565,8 @@
                                                                         :some.doc.enum/b "Enum B"}
                                                                  :gen/should-generate]}
                 :interface.def/identify-via ['[?e :obj/docstring-enum-attr]]}
-          ast (semantic-spec->semantic-ast spec)]
-      (testing "semantic-spec->semantic-ast"
+          ast (dspec->ast spec)]
+      (testing "dspec->ast"
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-docstring-enum
@@ -598,8 +602,8 @@
                 :interface.def/fields {:obj/many-enum-attr ["A many-cardinality enum attribute"
                                                             [:enum] #{:some.enum/a :some.enum/b}]}
                 :interface.def/identify-via ['[?e :obj/many-enum-attr]]}]
-      (testing "semantic-spec->semantic-ast"
-        (let [ast (semantic-spec->semantic-ast spec)]
+      (testing "dspec->ast"
+        (let [ast (dspec->ast spec)]
           (is (= ast
                  {:interface.ast/interfaces
                                           {:interface/entity-with-many-enum
@@ -621,8 +625,8 @@
                                                                       [:enum] {:some.doc.enum/a "Enum A"
                                                                                :some.doc.enum/b "Enum B"}]}
                 :interface.def/identify-via ['[?e :obj/many-docstring-enum-attr]]}]
-      (testing "semantic-spec->semantic-ast"
-        (let [ast (semantic-spec->semantic-ast spec)]
+      (testing "dspec->ast"
+        (let [ast (dspec->ast spec)]
           (is (= ast
                  {:interface.ast/interfaces
                                           {:interface/entity-with-many-docstring-enum
@@ -651,7 +655,7 @@
                                                     :gen/should-generate]}
                   :interface.def/identify-via :datomic-spec/interfaces
                   :interface.def/identifying-enum-part :db.part/user}
-        ast (semantic-spec-coll->semantic-ast [spec pet-spec])]
+        ast (dspec-coll->ast [spec pet-spec])]
     (testing "generating data with default spec generators"
       (register-specs-for-ast! ast d/tempid db-id?)
       (let [generator (s/gen :interface/entity-with-ref)
@@ -674,8 +678,8 @@
               :interface.def/fields {:obj/tags [[:string] "A collection of strings"]}
               :interface.def/identify-via :datomic-spec/interfaces
               :interface.def/identifying-enum-part :db.part/other}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/entity-with-string-collection
@@ -702,9 +706,9 @@
   (let [specs [#:interface.def{:name :interface/entity-with-index
                                :fields {:obj/indexed-attr [:keyword :db/index]}
                                :identify-via '[[?e :obj/indexed-attr]]}]
-        ast (semantic-spec-coll->semantic-ast specs)]
+        ast (dspec-coll->ast specs)]
     (testing "generating Datomic schemas"
-      (let [{:keys [datomic/field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:keys [datomic/field-schema]} (ast->schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/indexed-attr
                   :db/valueType :db.type/keyword
                   :db/cardinality :db.cardinality/one
@@ -717,9 +721,9 @@
   (let [specs [#:interface.def{:name :interface/entity-with-fulltext
                                :fields {:obj/fulltext-attr [:string :db/fulltext]}
                                :identify-via '[[?e :obj/fulltext-attr]]}]
-        ast (semantic-spec-coll->semantic-ast specs)]
+        ast (dspec-coll->ast specs)]
     (testing "generating Datomic schemas"
-      (let [{:keys [datomic/field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:keys [datomic/field-schema]} (ast->schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/fulltext-attr
                   :db/valueType :db.type/string
                   :db/cardinality :db.cardinality/one
@@ -731,9 +735,9 @@
   (let [specs [#:interface.def{:name :interface/entity-with-index
                                :fields {:obj/no-history-attr [:keyword :db/noHistory]}
                                :identify-via '[[?e :obj/indexed-attr]]}]
-        ast (semantic-spec-coll->semantic-ast specs)]
+        ast (dspec-coll->ast specs)]
     (testing "generating Datomic schemas"
-      (let [{:keys [datomic/field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:keys [datomic/field-schema]} (ast->schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/no-history-attr
                   :db/valueType :db.type/keyword
                   :db/cardinality :db.cardinality/one
@@ -750,9 +754,9 @@
                                :fields {:component/key [:keyword]}
                                :identify-via :datomic-spec/interfaces
                                :identifying-enum-part :db.part/user}]
-        ast (semantic-spec-coll->semantic-ast specs)]
+        ast (dspec-coll->ast specs)]
     (testing "generating Datomic schemas"
-      (let [{:datomic/keys [field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+      (let [{:datomic/keys [field-schema]} (ast->schemas ast d/tempid)]
         (is (= #{{:db/ident :obj/component-attr
                   :db/valueType :db.type/ref
                   :db/cardinality :db.cardinality/one
@@ -777,8 +781,8 @@
                                           :taggable/tags [[:string] "Tags for an entity"]
                                           :user/registeredAt [:instant "When a user registered"]}
                    :interface.def/identify-via ['[?e :user/username]]}]
-    (testing "semantic-spec->semantic-ast"
-      (let [ast (semantic-spec->semantic-ast user-spec)]
+    (testing "dspec->ast"
+      (let [ast (dspec->ast user-spec)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/user
@@ -806,8 +810,8 @@
                 :interface.ast/enum-map {}}))))
     (testing "generating Datomic schemas"
       (let [{:keys [datomic/field-schema]} (-> user-spec
-                                               semantic-spec->semantic-ast
-                                               (semantic-ast->datomic-schemas d/tempid))]
+                                               dspec->ast
+                                               (ast->schemas d/tempid))]
         (is (every? db-id? (map :db/id field-schema)))
         (is (= #{{:db/ident :user/registeredAt
                   :db/valueType :db.type/instant
@@ -829,7 +833,7 @@
 
 (deftest to-do
   (testing "with multiple attributes having multiple enums"
-    (testing "semantic-spec->semantic-ast"
+    (testing "dspec->ast"
       (testing "should combine the enums"))))
 
 (deftest internal-refs-btwn-specs
@@ -840,8 +844,8 @@
                 :interface.def/fields {:refable/valid-attr [:string "Refable attr"]}
                 :interface.def/identify-via :datomic-spec/interfaces
                 :interface.def/identifying-enum-part :db.part/user}]
-        ast (semantic-spec-coll->semantic-ast specs)]
-    (testing "semantic-spec-coll->semantic-ast"
+        ast (dspec-coll->ast specs)]
+    (testing "dspec-coll->ast"
       (is (= ast
              {:interface.ast/interfaces
                                       {:interface/entity-with-valid-ref {:interface.ast.interface/name :interface/entity-with-valid-ref
@@ -882,17 +886,17 @@
   (let [specs [{:interface.def/name :interface/entity-with-invalid-ref
                 :interface.def/fields {:obj/invalid-attr [:interface/some-undefined-type "Is invalid"]}
                 :interface.def/identify-via ['[?e :obj/invalid-attr]]}]]
-    (testing "semantic-spec-coll->semantic-ast"
+    (testing "dspec-coll->ast"
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"Invalid attribute type :interface/some-undefined-type"
-                            (semantic-spec-coll->semantic-ast specs))))))
+                            (dspec-coll->ast specs))))))
 
 (deftest dspecs-whose-generators-can-violate-their-specs
   (testing "warn against generators that will potentially violate the associated spec"
     (let [specs [#:interface.def{:name :interface/violates-such-that
                                  :fields {:invalid/one [:keyword :required]}
                                  :identify-via [['?e :invalid/one]]}]
-          ast (semantic-spec-coll->semantic-ast specs)
+          ast (dspec-coll->ast specs)
           ;generators {:invalid/one #(gen/return nil)}
           generators {:interface/violates-such-that (fn [base-gen-spec-factory]
                                                       (gen/fmap
@@ -925,13 +929,13 @@
                   :interface.def/identifying-enum-part :db.part/user}]]
       ; Should not throw
       (-> specs
-          semantic-spec-coll->semantic-ast
+          dspec-coll->ast
           (register-specs-for-ast! d/tempid db-id?)))))
 
 (let [specs family-semantic-specs]
   (deftest spec-inheritance-ast
-    (testing "semantic-spec-coll->semantic-ast"
-      (let [ast (semantic-spec-coll->semantic-ast specs)]
+    (testing "dspec-coll->ast"
+      (let [ast (dspec-coll->ast specs)]
         (is (= ast
                {:interface.ast/interfaces
                                         {:interface/child {:interface.ast.interface/name :interface/child
@@ -990,7 +994,7 @@
                                                             :db/part :db.part/user}}})))))
   (deftest specs-with-inheritance-clojure-spec
     (testing "generating clojure.spec definitions"
-      (let [ast (semantic-spec-coll->semantic-ast specs)]
+      (let [ast (dspec-coll->ast specs)]
         (register-specs-for-ast! ast d/tempid db-id?)
         (is (false?
               (s/valid? :interface/child {:db/id (d/tempid :db.part/user)
@@ -1010,8 +1014,8 @@
         )))
 
   (deftest specs-with-inheritance-generating-datomic-schemas
-    (let [ast (semantic-spec-coll->semantic-ast specs)
-          {:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)]
+    (let [ast (dspec-coll->ast specs)
+          {:datomic/keys [partition-schema enum-schema field-schema]} (ast->schemas ast d/tempid)]
       (is (map? (-> (d/db *conn*)
                     (d/with partition-schema)
                     :db-after
@@ -1036,7 +1040,7 @@
                           :interface.def/inherits [:interface/parent-id-via-attr]
                           :interface.def/identify-via :datomic-spec/interfaces
                           :interface.def/identifying-enum-part :db.part/user}
-              ast (semantic-spec-coll->semantic-ast [parent-spec child-spec])]
+              ast (dspec-coll->ast [parent-spec child-spec])]
           (register-specs-for-ast! ast d/tempid db-id?)
           (let [child (gen/generate (s/gen :interface/self-labeling-child-of-parent-id-via-attr))]
             (is (= #{:interface/self-labeling-child-of-parent-id-via-attr}
@@ -1052,7 +1056,7 @@
                           :interface.def/inherits [:interface/parent-id-via-datomic-spec-interfaces]
                           :interface.def/identify-via ['[?e :child-id-via-attr-inheriting-parent-id-via-datomic-spec-interfaces/name]]
                           :interface.def/identifying-enum-part :db.part/user}
-              ast (semantic-spec-coll->semantic-ast [parent-spec child-spec])]
+              ast (dspec-coll->ast [parent-spec child-spec])]
           (register-specs-for-ast! ast d/tempid db-id?)
           (let [child (gen/generate (s/gen :interface/child-id-via-attr-inheriting-parent-id-via-datomic-spec-interfaces))]
             (is (= #{:interface/parent-id-via-datomic-spec-interfaces}
@@ -1069,7 +1073,7 @@
                   :interface.def/fields {}}]]
       (is (thrown-with-msg? clojure.lang.ExceptionInfo
                             #"did not conform to spec:"
-                            (semantic-spec-coll->semantic-ast specs))))))
+                            (dspec-coll->ast specs))))))
 
 (deftest toposorted-ordering-of-clojure-spec-declarations
   (let [specs [{:interface.def/name :interface/tx
@@ -1082,7 +1086,7 @@
                 :interface.def/identifying-enum-part :db.part/user}]]
     ; This should not throw
     (-> specs
-        semantic-spec-coll->semantic-ast
+        dspec-coll->ast
         (register-specs-for-ast! d/tempid db-id?))))
 
 (let [specs [{:interface.def/name :interface/polyglot
@@ -1094,11 +1098,11 @@
               :interface.def/identify-via :datomic-spec/interfaces
               :interface.def/identifying-enum-part :db.part/user}]]
   (deftest generating-clojure-spec-defs-with-custom-ensure-keys-generator
-    (let [ast (semantic-spec-coll->semantic-ast specs)
+    (let [ast (dspec-coll->ast specs)
           custom-gens {:interface/translator (ensure-keys-gen :db/id :translator/id)}]
       ; Should not throw
       (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
-      (let [{:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+      (let [{:datomic/keys [partition-schema enum-schema field-schema]} (ast->schemas ast d/tempid)
             db (-> (d/db *conn*)
                    (d/with partition-schema)
                    :db-after
@@ -1108,7 +1112,7 @@
                    :db-after)]
         (d/with db (gen/sample (s/gen :interface/translator))))))
   (deftest generating-clojure-spec-defs-with-custom-set-generator
-    (let [ast (semantic-spec-coll->semantic-ast specs)
+    (let [ast (dspec-coll->ast specs)
           custom-gens {:polyglot/languages #(gen/set (s/gen #{"Cantonese"
                                                               "English"
                                                               "Japanese"
@@ -1117,7 +1121,7 @@
                                                      {:min-elements 1 :max-elements 1})}]
       ; Should not throw
       (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
-      (let [{:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+      (let [{:datomic/keys [partition-schema enum-schema field-schema]} (ast->schemas ast d/tempid)
             db (-> (d/db *conn*)
                    (d/with partition-schema)
                    :db-after
@@ -1135,14 +1139,14 @@
                   :interface.def/fields {}
                   :interface.def/identify-via :datomic-spec/interfaces
                   :interface.def/identifying-enum-part :db.part/user}]
-          ast (semantic-spec-coll->semantic-ast specs)
+          ast (dspec-coll->ast specs)
           custom-gens {:carpenter/tools (fn [member-gen-factory]
                                           (gen/set (member-gen-factory) {:min-elements 1 :max-elements 1}))}]
       ; Should not throw
       (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)
       (let [carpenter (gen/generate (s/gen :interface/carpenter))]
         (is (= 1 (-> carpenter :carpenter/tools count))))
-      (let [{:datomic/keys [partition-schema enum-schema field-schema]} (semantic-ast->datomic-schemas ast d/tempid)
+      (let [{:datomic/keys [partition-schema enum-schema field-schema]} (ast->schemas ast d/tempid)
             db (-> (d/db *conn*)
                    (d/with partition-schema)
                    :db-after
@@ -1161,7 +1165,7 @@
                 :interface.def/fields {:child-xx/name [:string :required]}
                 :interface.def/identify-via [['?e :child-xx/name]]
                 :interface.def/inherits [:interface/parent-of-child-with-identifying-attr]}]
-        ast (semantic-spec-coll->semantic-ast specs)
+        ast (dspec-coll->ast specs)
         custom-gens
           {:interface/parent-of-child-with-identifying-attr (fn [base-gen-factory]
                                                               (gen/fmap
@@ -1180,14 +1184,14 @@
                                        :obj/another-keyword-field [:keyword]}
                 :interface.def/identify-via [['?e :obj/unique-field-no-generator]]}]
         custom-gens {:obj/another-keyword-field #(gen/return :some/kw)}
-        ast (semantic-spec-coll->semantic-ast specs)]
+        ast (dspec-coll->ast specs)]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo
                           #"You should provide a custom generator to the unique attribute :obj/unique-field-no-generator"
                           (register-specs-for-ast-with-custom-generators! ast custom-gens d/tempid db-id?)))
     (testing "should not throw when no custom generators are provided with clojure.spec registration"
       (register-specs-for-ast! ast d/tempid db-id?))))
 
-(let [ast (semantic-spec-coll->semantic-ast family-semantic-specs)]
+(let [ast (dspec-coll->ast family-semantic-specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec parent-schemas-dont-generate-child-keys
            100
@@ -1208,7 +1212,7 @@
 (let [specs [{:interface.def/name :interface/string-generator
               :interface.def/fields {:string-generator/str [:string]}
               :interface.def/identify-via [['?e :string-generator/str]]}]
-      ast (semantic-spec-coll->semantic-ast specs)]
+      ast (dspec-coll->ast specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-attributes-should-always-generate-non-empty-strings
     100
@@ -1218,7 +1222,7 @@
 (let [specs [{:interface.def/name :interface/string-coll-generator
               :interface.def/fields {:string-coll-generator/strings [[:string]]}
               :interface.def/identify-via [['?e :string-coll-generator/strings]]}]
-      ast (semantic-spec-coll->semantic-ast specs)]
+      ast (dspec-coll->ast specs)]
   (register-specs-for-ast! ast d/tempid db-id?)
   (defspec string-coll-attribute-should-always-generate-non-empty-strings
            100
@@ -1241,7 +1245,7 @@
                   :interface.def/fields {}
                   :interface.def/identify-via :datomic-spec/interfaces
                   :interface.def/identifying-enum-part :db.part/user}]
-          ast (semantic-spec-coll->semantic-ast specs)]
+          ast (dspec-coll->ast specs)]
       (is (= [['?e :datomic-spec/interfaces :interface/obj-id-via-datomic-spec-interfaces]]
              (ast&interface->identifying-datalog-clauses ast :interface/obj-id-via-datomic-spec-interfaces))))
     (testing "with inheritance should only consider a single interface's identify-via parameters"
@@ -1254,7 +1258,7 @@
                     :interface.def/inherits [:interface/parent-id-via-datomic-spec-interfaces]
                     :interface.def/identify-via :datomic-spec/interfaces
                     :interface.def/identifying-enum-part :db.part/user}]
-            ast (semantic-spec-coll->semantic-ast specs)]
+            ast (dspec-coll->ast specs)]
         (is (= [['?e :datomic-spec/interfaces :interface/child-id-via-datomic-spec-interfaces]]
                (ast&interface->identifying-datalog-clauses ast :interface/child-id-via-datomic-spec-interfaces)))
         (is (= [['?e :datomic-spec/interfaces :interface/parent-id-via-datomic-spec-interfaces]]
@@ -1263,7 +1267,7 @@
     (let [specs [{:interface.def/name :interface/obj-id-via-datalog-query
                   :interface.def/fields {:obj-id-via-datalog-query/name [:string :required]}
                   :interface.def/identify-via [['?e :obj-id-via-datalog-query/name]]}]
-          ast (semantic-spec-coll->semantic-ast specs)]
+          ast (dspec-coll->ast specs)]
       (is (= [['?e :obj-id-via-datalog-query/name]]
              (ast&interface->identifying-datalog-clauses ast :interface/obj-id-via-datalog-query))))))
 
@@ -1282,7 +1286,7 @@
                     :interface.def/identify-via :datomic-spec/interfaces
                     :interface.def/identifying-enum-part :db.part/user}]]
   (-> gen-3-specs
-      semantic-spec-coll->semantic-ast
+      dspec-coll->ast
       (register-specs-for-ast! d/tempid db-id?))
   (defspec grandchild-should-self-label-with-all-transitive-inherited-interfaces
            100
@@ -1327,7 +1331,7 @@
                                :interface.def/fields {:nested-grandchild/name [:string :required]}
                                :interface.def/identify-via :datomic-spec/interfaces
                                :interface.def/identifying-enum-part :db.part/user}]
-      ast (semantic-spec-coll->semantic-ast nested-interface-specs)
+      ast (dspec-coll->ast nested-interface-specs)
       custom-generators {:nested-grandchild/name (fn [orig-gen] (gen/return "mike"))}]
   (register-specs-for-ast-with-custom-generators! ast custom-generators d/tempid db-id?)
   (defspec gen-with-max-depth-2-should-not-generate-more-than-max-depth
@@ -1344,7 +1348,7 @@
              (let [gc-name (get-in entity [:grandparent/child :parent/child :nested-grandchild/name])]
                (or (nil? gc-name) (= "mike" gc-name))))))
 
-(deftest check-semantic-spec->semantic-ast
+(deftest check-dspec->ast
   (let [gen-size 5
         gen-overrides
           (merge
@@ -1363,7 +1367,7 @@
                                                :vals-with-doc #(tcgen/resize
                                                                  gen-size
                                                                  (s/gen :interface.def.field.enum/vals-with-doc))})))})]
-    (doseq [result-map (stest/check `semantic-spec->semantic-ast {:gen gen-overrides
+    (doseq [result-map (stest/check `dspec->ast {:gen gen-overrides
                                                                   :clojure.spec.test.check/opts {:num-tests 100}})]
       (is (not (contains? result-map :failure))))))
 
@@ -1411,7 +1415,7 @@
                {:interface.def/name :interface/y->x
                 :interface.def/fields {:y->x/x [:interface/x->y :gen/should-generate]}
                 :interface.def/identify-via [['?e :y->x/x]]}]
-        ast (semantic-spec-coll->semantic-ast specs)]
+        ast (dspec-coll->ast specs)]
     (register-specs-for-ast! ast d/tempid db-id?)
     (defspec circular-interfaces-data-generation
              10

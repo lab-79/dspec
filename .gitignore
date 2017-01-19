@@ -15,3 +15,4 @@ pom.xml.asc
 .hgignore
 .hg/
 .idea/
+dspec.iml

@@ -13,6 +13,7 @@
                  [com.stuartsierra/dependency "0.2.0"]
                  [org.clojure/test.check "0.9.0"]
                  [lab79/datomic-spec "0.1.3"]
+                 [lab79/clojure-spec-helpers "0.1.0-alpha1"]
                  ]
   :profiles {:dev {:dependencies
                     [

@@ -468,10 +468,12 @@ It will also be able to generate the following Datomic attributes.
 
 ```clojure
 (require '[datomic.api :as d])
+(require [lab79.dspec :refer [dspec->ast]])
+(require '[lab79.dspec.plugins.datomic :refer [ast->schemas])
 
 (-> user-interface
-    semantic-spec->semantic-ast
-    (semantic-ast->datomic-schemas d/tempid))
+    dspec->ast
+    (ast->schemas d/tempid))
 ```
 
 This will generate the following Datomic attributes:
@@ -517,8 +519,8 @@ specify. For example, consider the following
                              :person.gender/female  "Female"
                              :person.gender/other "Other"}]}})
 (-> person-interface
-    semantic-spec->semantic-ast
-    (semantic-ast->datomic-schemas d/tempid))
+    dspec->ast
+    (ast->schemas d/tempid))
 ```
 
 
@@ -558,10 +560,9 @@ Because we leverage `clojure.spec`, we can also leverage its
 generate test or sample data.
 
 ```clojure
-(require '[datomic-tools.core :refer [semantic-spec-coll->semantic-ast
-                                      register-specs-for-ast!
-                                      register-specs-for-ast-with-custom-generators!
-                                      ]])
+(require '[lab79.dspec :refer [dspec-coll->ast]])
+(require '[lab79.dspec.plugins.clojure-spec :refer [register-specs-for-ast!
+                                                    register-specs-for-ast-with-custom-generators!]])
 (require '[clojure.spec.gen :as gen])
 (require '[ccm-om-next.db.gen.util :refer [fn->gen ensure-keys-gen]])
 (require '[faker.name :as fname])
@@ -600,7 +601,7 @@ generate test or sample data.
 
     ; Convert the semantic data interfaces to the intermediate semantic ast
     ; representation
-    semantic-spec-coll->semantic-ast
+    dspec-coll->ast
 
     ; Register `clojure.spec` specs based off the semantic ast
     ; and based off of custom generators to over-write particular
@@ -703,7 +704,7 @@ Then, we can convert this to the intermediate AST.
 
 ```clojure
 (require '[lab79.dspec :refer [ds]])
-(ds/semantic-spec-coll->semantic-ast user-interface)
+(ds/dspec-coll->ast user-interface)
 ```
 
 This will generate the following AST.
