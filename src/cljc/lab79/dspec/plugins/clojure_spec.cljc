@@ -26,7 +26,7 @@
                      :ast/interface :interface.ast/interface)
         :ret (s/coll-of :interface.ast/field :kind set?))
 (defn- ast&interface->ast-fields
-  "Returns the set of all fields that represent an interface."
+  "Returns the set of all fields that correspond to a dspec interface."
   [ast interface]
   (let [{:keys [interface.ast/interfaces]} ast
         {:interface.ast.interface/keys [fields inherits]} interface
