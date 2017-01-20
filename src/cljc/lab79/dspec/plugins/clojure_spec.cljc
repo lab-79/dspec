@@ -768,7 +768,7 @@
     (let [sorted-deps (-> ast deps-graph-for-ast ssdep/topo-sort)
           specs (ast->clojure-specs ast gen-map)]
       (s/def :db/id
-        (s/with-gen db-id? (fn->gen #(tempid-factory :db.part/user))))
+        (s/with-gen db-id? #(fn->gen (fn [] (tempid-factory :db.part/user)))))
       (doseq [spec-name sorted-deps]
         (eval `(s/def ~spec-name ~(get specs spec-name))))
       (if-not (empty? gen-map)

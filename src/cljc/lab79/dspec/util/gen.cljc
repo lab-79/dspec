@@ -21,7 +21,7 @@
 (defn fn->gen [func]
   "Given a zero-arity function, create a generator factory out of it, whose
   generated values are created by func."
-  #(gen/fmap (fn [_] (func)) (gen/return nil)))
+  (gen/fmap (fn [_] (func)) (gen/return nil)))
 
 
 (s/fdef only-keys-gen
