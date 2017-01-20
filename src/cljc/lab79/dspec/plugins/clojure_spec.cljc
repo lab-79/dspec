@@ -11,7 +11,7 @@
             [com.rpl.specter :refer [MAP-VALS collect-one]]
             [lab79.dspec.util :refer [arity]]
             [lab79.dspec.util.gen :refer [ensure-keys-gen fn->gen]]
-    #?(:cljs [lab79.eval :refer [eval*]])
+    #?(:cljs [lab79.dspec.util.eval :refer [eval*]])
     #?(:clj  [clojure.spec.gen :as gen]
        :cljs [cljs.spec.impl.gen :as gen])
     #?(:clj  [com.rpl.specter.macros :refer [select select-first]])))

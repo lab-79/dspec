@@ -6,7 +6,7 @@
                :cljs [cljs.spec :as s])
             #?(:clj  [clojure.spec.gen :as gen]
                :cljs [cljs.spec.impl.gen :as gen])
-            #?(:cljs [lab79.eval :refer [eval*]])
+            #?(:cljs [lab79.dspec.util.eval :refer [eval*]])
             [clojure.test.check.generators :refer [generator?]]))
 
 #?(:cljs (defn- eval [form]

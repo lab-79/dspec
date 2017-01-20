@@ -1,4 +1,4 @@
-(ns lab79.eval
+(ns lab79.dspec.util.eval
   #?(:cljs (:require [cljs.spec.impl.gen :as gen]
                      [cljs.js])))
 ; Appropriated from planck.
