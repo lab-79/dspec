@@ -56,6 +56,7 @@
       ; clojure.spec/keys is a macro so it can't take a symbol like `ensure-keys` directly
       (gen/tuple (base-gen-factory) (s/gen (eval `(s/keys :req ~ensure-keys)))))))
 
+; TODO Remove
 (defn ensure-keys-gen-alt
   [& ensure-keys]
   (fn [base-gen-factory max-depth]))
