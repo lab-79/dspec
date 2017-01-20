@@ -11,6 +11,7 @@
             [com.rpl.specter :refer [MAP-VALS collect-one]]
             [lab79.dspec.util :refer [arity]]
             [lab79.dspec.util.gen :refer [ensure-keys-gen fn->gen]]
+            lab79.dspec.specs.clojure-spec
     #?(:cljs [lab79.dspec.util.eval :refer [eval*]])
     #?(:clj  [clojure.spec.gen :as gen]
        :cljs [cljs.spec.impl.gen :as gen])
@@ -18,14 +19,6 @@
 
 #?(:cljs (defn- eval [form]
            (eval* form 'lab79.dspec)))
-
-; clojure.spec for defining custom generator maps for our fields
-(s/def :interface/gen-map (s/map-of keyword? (s/or :no-member-gen-factory :gen/generator-factory
-                                                   :with-member-gen-factory :gen/generator-factory-with-member)))
-
-; TODO Get more specific than any?
-(s/def :clojure.spec/deps-graph any?)
-(s/def :clojure.spec/macros (s/map-of keyword? any?))
 
 
 (s/fdef ast&interface->ast-fields
@@ -54,28 +47,6 @@
   (let [interface (-> ast :interface.ast/interfaces interface-name)
         {:keys [interface.ast.interface/inherits]} interface]
     (into inherits (mapcat #(get-all-inherited-interface-names ast %) inherits))))
-
-(s/def :gen/generator-factory
-  (s/fspec :args (s/cat)
-           :ret generator?
-           :gen #(gen/return
-                   (fn [] (gen/return :k/w)))))
-(s/def :gen/generator-factory-with-member
-  (s/fspec :args (s/cat :member-generator-factory :gen/generator-factory)
-           :ret generator?
-           :gen #(gen/return (fn [mem-gen-factory]
-                               (gen/set (mem-gen-factory) {:min-elements 1
-                                                           :max-elements 1})))))
-
-
-(s/def :cljspec/spec s/spec?)
-(s/def :dspec/gen-factory (s/fspec :args (s/cat)
-                                   :ret generator?))
-(s/def :dspec/gen-factory-1 (s/fspec :args (s/cat :original-gen-factory :dspec/gen-factory)
-                                     :ret generator?))
-; TODO Replace dummy with more precise fspec
-(s/def :dummy/gen-factory fn?)
-(s/def :dummy/gen-factory-1 fn?)
 
 (s/fdef interface->generator-factory
         :args (s/cat :spec s/spec?
