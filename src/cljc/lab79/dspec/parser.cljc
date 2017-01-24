@@ -41,9 +41,10 @@
                      :conformed-field-tag-kv (s/tuple keyword? any?))
         :ret (s/keys :req [:dspec.parsing/field :dspec.parsing/enum-map]))
 (defmulti update-field-ast&enum-map
-  "Returns an updated version of field-ast&enum-map"
+  "Optionally interpret a part of a single AST field, by decorating a parsed
+  intermediary that is passe around when parsing a single field inside an AST."
   (fn [field-ast&enum-map [tag-alias conformed-tag-value]]
-            tag-alias))
+    tag-alias))
 
 (defmethod update-field-ast&enum-map :should-generate
   [field-ast&enum-map _]
