@@ -20,6 +20,7 @@
                      eid-satisfies-interface? identify-via-clauses-for
                      ast&interface->identifying-datalog-clauses]]
             [lab79.dspec :refer [dspec->ast dspec-coll->ast]]
+            lab79.dspec.helpers
             [lab79.dspec.util.gen :refer [ensure-keys-gen]]
             #?(:clj  [clojure.spec :as s]
                :cljs [cljs.spec :as s])
@@ -28,7 +29,7 @@
             #?(:clj  [datomic.api :as d]
                :cljs [datascript.core :as d])
             [lab79.datomic-spec.gen-overrides :refer [sized-overrides-for]]
-            [dspec.util :refer [db-id?]]))
+            [dspec.util :refer [db-id? instrument-all!]]))
 
 #?(:cljs (enable-console-print!))
 
@@ -51,22 +52,7 @@
 (use-fixtures :once setup&teardown-db)
 
 ; Instrument all our functions in dspec
-(let [generator-overrides
-      (merge
-        (sized-overrides-for 5 :datomic.query.kv/where :datalog/clause)
-        {:datomic.api/q #(gen/return d/q)
-         :interface.ast.field/type #(s/gen NATIVE-TYPES)
-
-         :datalog/expression-clause #(tcgen/resize 1 (s/gen :datalog/data-pattern))
-
-         :interface/def #(tcgen/resize 1 (s/gen :interface/def))
-         :interface.def/fields #(tcgen/resize 1 (s/gen :interface.def/fields))
-         :interface.def.field.enum/vals-no-doc #(tcgen/resize 1 (s/gen :interface.def.field.enum/vals-no-doc))
-         :interface.def.field.enum/vals-with-doc #(tcgen/resize 1 (s/gen :interface.def.field.enum/vals-with-doc))
-         :interface.def/field #(gen/fmap (fn [m] (flatten (vals m))) (s/gen (s/keys :req [:interface.def.field/single-type] :opt [:db/doc])))
-         :interface.def/identifying-enum-part #(gen/return :db.part/user)})]
-  (-> (stest/enumerate-namespace 'lab79.dspec)
-      (stest/instrument generator-overrides)))
+(instrument-all!)
 
 (def family-semantic-specs
   [{:interface.def/name :interface/child

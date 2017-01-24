@@ -4,15 +4,14 @@
                :cljs [clojure.test.check.properties :refer-macros [for-all]])
             #?(:clj  [clojure.test.check.clojure-test :refer [defspec]]
                :cljs [clojure.test.check.clojure-test :refer-macros [defspec]])
-            [clojure.spec.test :as stest]
             [lab79.dspec.util.gen :refer [only-keys-gen]]
+            [dspec.util :refer [instrument-all!]]
             #?(:clj  [clojure.spec :as s]
                :cljs [cljs.spec :as s])))
 
 #?(:cljs (enable-console-print!))
 
-(stest/instrument (stest/enumerate-namespace 'lab79.dspec))
-(stest/instrument (stest/enumerate-namespace 'lab79.dspec.util.gen))
+(instrument-all!)
 
 (let [gen-factory (only-keys-gen :x/x :y/y)
       _ (s/def :x/x keyword?)

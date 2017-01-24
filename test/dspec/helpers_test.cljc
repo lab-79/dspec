@@ -10,13 +10,12 @@
                :cljs [cljs.spec.impl.gen :as gen])
             #?(:clj  [datomic.api :as d]
                :cljs [datascript.core :as d])
-            [dspec.util :refer [db-id?]]))
+            [dspec.util :refer [db-id? instrument-all!]]))
 
 #?(:cljs (enable-console-print!))
 
 ; Instrument all our functions in dspec
-(stest/instrument (stest/enumerate-namespace 'lab79.dspec))
-(stest/instrument (stest/enumerate-namespace 'lab79.dspec.helpers))
+(instrument-all!)
 
 (let [specs [#:interface.def{:name :interface/helper-a
                              :fields {:helper-a/key [:keyword :gen/should-generate]}

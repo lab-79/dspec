@@ -1,14 +1,12 @@
 (ns dspec.util-test
   (:require [clojure.test :refer [deftest is]]
             lab79.dspec.util
-            [clojure.spec.test :as stest]))
+            [dspec.util :refer [db-id? instrument-all!]]))
 
 #?(:cljs (enable-console-print!))
 
 ; Instrument all our functions in dspec
-(-> 'lab79.dspec.util
-    stest/enumerate-namespace
-    stest/instrument)
+(instrument-all!)
 
 ; TODO Turn these tests back on
 (deftest util-fn-fuzzing
