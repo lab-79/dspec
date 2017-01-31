@@ -1,3 +1,8 @@
+; TODO Remove register-specs-for-ast-with-custom-generators!
+; TODO Change arity of ast->clojure-specs to 1
+; TODO Change arity of interface->clojure-specs to 2
+; TODO Change arity of field->clojure-specs to 1
+
 (ns lab79.dspec
   #?(:cljs (:require-macros
              cljs.spec

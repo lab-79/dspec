@@ -22,27 +22,6 @@ helps us achieve the following:
       1. Validating data.
       2. Generating sample or test data.
 
-## Goals
-
-This library will help unify the following goals, from one central schema
-specification.
-
-1. (Done) Provide a more readable way to read a Datomic schema and understand
-   how it is being used in an app.
-2. (Done) Generate schema edn for Datomic schema specifications.
-3. (Done) Generate `clojure.spec` spec definitions.
-4. Provide easy, extensible validation tagging (e.g., `:required`).
-5. (Done) Generate fake dev data or test data, by providing additional
-   semantics (e.g., what entity types can map to what other entity types via
-   Datomic `ref`s).
-6. Integrates with a nice way to add or retract from a Datomic db schema when
-   these semantic schema definitions change.
-7. (Done) Make it easy to extract specific *kinds* of entities.
-8. (Done) Conveniently detect what interfaces an entity satisfies.
-9. (Done) Support polymorphism.
-10. Small code base.
-11. Simple design.
-
 ## Getting started
 
 Add the following dependency to your `project.clj` file:
